@@ -16,6 +16,8 @@
 #include "gcm.h"
 #include "aes.h"
 
+#define DEBUG (1)
+
 void *mbedtls_gcm_init() {
 	return malloc(sizeof(mbedtls_gcm_context));
 }
@@ -40,7 +42,8 @@ int mbedtls_gcm_setkey( void *ctx,
 
 void mbedtls_gcm_free( void *ctx ) {
 	if ( ctx ) {
-/* the ctx and ctx->rk point to the same place, so call free() one time is enough
+		// the ctx and ctx->rk point to the same place, so call free() one time is enough
+/*
 		mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
 		if ( temp_ctx->rk ) {
 			free((void*)(temp_ctx->rk));
@@ -53,10 +56,9 @@ void mbedtls_gcm_free( void *ctx ) {
 /* the const multi value */
 static uint8_t H[16];
 
-void printf_output(uint8_t *p) {
-	//printf("%s:", *name);
+void printf_output(uint8_t *p, size_t length) {
 	uint8_t i = 0;
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length; i++ ) {
 		printf("%x ", p[i]);
 	}
 	printf("\n");
@@ -112,10 +114,10 @@ static void multi (uint8_t * x) {
 static void incr (uint8_t *iv) {
 	iv += 12;
 	uint32_t temp = ((uint32_t)iv[0]<<24) + ((uint32_t)iv[1]<<16) + ((uint32_t)iv[2]<<8) + ((uint32_t)iv[3]) + 1;
-	iv[3] = (uint8_t)temp;
-	iv[2] = (uint8_t)temp>>8;
-	iv[1] = (uint8_t)temp>>16;
-	iv[0] = (uint8_t)temp>>24;
+	iv[3] = (uint8_t)(temp); // the priority of () is higher than >>, ^_^
+	iv[2] = (uint8_t)(temp>>8);
+	iv[1] = (uint8_t)(temp>>16);
+	iv[0] = (uint8_t)(temp>>24);
 }
 
 /*
@@ -138,13 +140,22 @@ static void ghash(const uint8_t *add,
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
 		add += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(output);
+#if defined(DEBUG)
+		printf("X+:             ");
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 	}
+
 	if ( add_len % BLOCK_CIPHER_BLOCK_SIZE ) {
 		// the remaining add
 		for ( i = 0; i < add_len%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-			*output ^= *add;
+			*(output+i) ^= *(add+i);
 		}
 		multi(output);
+#if defined(DEBUG)
+		printf("X+:             ");
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 	}
 
 	/* compute with cipher text */
@@ -153,35 +164,45 @@ static void ghash(const uint8_t *add,
 		*((uint64_t *)output+1) ^= *((uint64_t *)cipher+1);
 		cipher += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(output);
-		printf("X%d:     ", (i+1));
-		printf_output(output);
+#if defined(DEBUG)
+		printf("X+:             ");
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
+
 	}
 	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
 		// the remaining cipher
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-			*output ^= *cipher;
+			*(output+i) ^= *(cipher+i);
+		}
+		if ( length < BLOCK_CIPHER_BLOCK_SIZE ) {
+			for ( i = length%BLOCK_CIPHER_BLOCK_SIZE; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+				*(output+i) = 0;
+			}
 		}
 		multi(output);
+#if defined(DEBUG)
+		printf("X+:             ");
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 	}
 
 	/* eor (len(A)||len(C)) */
 	uint64_t temp_len = (uint64_t)(add_len*8); // len(A) = (uint64_t)(add_len*8)
-	for ( i = 0; i < 8; i++ ) {
-		output[7-i] ^= (uint8_t)temp_len;
+	for ( i = 1; i < BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
+		output[BLOCK_CIPHER_BLOCK_SIZE/2-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
 	temp_len = (uint64_t)(length*8); // len(C) = (uint64_t)(length*8)
-	for ( i = 0; i < 8; i++ ) {
-		output[15-i] ^= (uint8_t)temp_len;
+	for ( i = 1; i < BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
+		output[BLOCK_CIPHER_BLOCK_SIZE-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
 	multi(output);
 }
 
-/*
+/**
  * authenticated encryption
- *
- * suppose all the length is a multiple of BLOCK_SIZE
  */
 int mbedtls_gcm_crypt_and_tag( void *ctx,
 		const unsigned char *iv,
@@ -198,52 +219,58 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	if ( !temp_ctx || !(temp_ctx->rk) ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
 	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
 
-	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0};
-	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE];
-	// set H
+	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // the counter
+	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
+
+	/* set H */
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
 	int i = 0;
 	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { H[i] = ency0[i]; }
-	printf("H:      ");
-	printf_output(H);
 
-	// compute y0 (initilization vector)
+#if defined(DEBUG)
+	printf("H:              ");
+	printf_output(H, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
+
+	/* compute y0 (initilization vector) */
 	if (DEFAULT_IV_LEN == iv_len) {
-		y0[0] = iv[0]; y0[1] =  iv[1]; y0[2] = iv[2]; y0[3] = iv[3];
-		y0[4] = iv[4]; y0[5] =  iv[5]; y0[6] = iv[6]; y0[7] = iv[7];
-		y0[8] = iv[8]; y0[9] =  iv[9]; y0[10] = iv[10]; y0[11] = iv[11];
-		y0[12] = 0; y0[13] =  0; y0[14] = 0; y0[15] = 1;
+		*(uint32_t*)y0 = *(uint32_t*)iv;
+		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
+		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
+		y0[15] = 1;
 	} else {
 		ghash(NULL, 0, (const uint8_t*)iv, iv_len, y0);
 	}
-	printf("Y0:     ");
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-		printf("%x ", y0[i]);
-	}
-	printf("\n");
 
+#if defined(DEBUG)
+	printf("Y0:             ");
+	printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 
-	// compute ency0 = ENC(K, y0)
+	/* compute ency0 = ENC(K, y0) */
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
-	printf("E(K, Y0): ");
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-		printf("%x ", ency0[i]);
-	}
-	printf("\n");
 
+#if defined(DEBUG)
+	printf("E(K, Y0):       ");
+	printf_output(ency0, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 
 	/* encyrption */
-	uint8_t * output_temp = output;
+	uint8_t * output_temp = output; // store the start pointer of cipher text
 	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 		incr(y0);
-		// printf y(i+1)
-		printf("Y%d:     ", i+1);
-		printf_output(y0);
+
+#if defined(DEBUG)
+		printf("Y%d:             ", i+1);
+		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
-		// printf enc(y(i+1))
-		printf("E(K, Y%d): ", i+1);
-		printf_output(output);
+
+#if defined(DEBUG)
+		printf("E(K, Y%d):       ", i+1);
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 
 		*(uint64_t*)output ^= *(uint64_t*)input;
 		*((uint64_t*)output+1) ^= *((uint64_t*)input+1);
@@ -253,20 +280,33 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	// the remaining plain text
 	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
 		incr(y0);
+#if defined(DEBUG)
+		printf("Y+:             ");
+		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
+#if defined(DEBUG)
+		printf("E(K, Y+):       ");
+		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-			*output ^= *input;
+			*(output+i) ^= *(input+i);
 		}
 	}
 
-	// printf cipher text
-	printf("cipher: ");
-	printf_output(output_temp);
+#if defined(DEBUG)
+	printf("cipher:         ");
+	printf_output(output_temp, length);
+#endif
 
-	// compute tag, y0 is useless now
+	/* compute tag, y0 is useless now */
 	ghash((const uint8_t *)add, add_len, (const uint8_t*)output_temp, length, y0);
-	printf("GHASH(H, A, C):");
-	printf_output(y0);
+
+#if defined(DEBUG)
+	printf("GHASH(H, A, C): ");
+	printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
+
 	for ( i = 0; i < tag_len; i++ ) {
 		tag[i] = y0[i] ^ ency0[i];
 	}
