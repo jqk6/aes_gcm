@@ -54,6 +54,7 @@ void mbedtls_gcm_free( void *ctx ) {
 static uint8_t H[16];
 
 void printf_output(uint8_t *p) {
+	//printf("%s:", *name);
 	uint8_t i = 0;
 	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 		printf("%x ", p[i]);
@@ -65,52 +66,43 @@ void printf_output(uint8_t *p) {
  * compute the value of x = x.h, where x and h all belong to GF(2^64)
  */
 static void multi (uint8_t * x) {
+
 	uint64_t z0 = 0, z1 = 0;
+	uint64_t v0 = ((uint64_t)x[0]<<56) + ((uint64_t)x[1]<<48) + ((uint64_t)x[2]<<40) + ((uint64_t)x[3]<<32) +
+			((uint64_t)x[4]<<24) + ((uint64_t)x[5]<<16) + ((uint64_t)x[6]<<8) + ((uint64_t)x[7]);
+	uint64_t v1 = ((uint64_t)x[8]<<56) + ((uint64_t)x[9]<<48) + ((uint64_t)x[10]<<40) + ((uint64_t)x[11]<<32) +
+			((uint64_t)x[12]<<24) + ((uint64_t)x[13]<<16) + ((uint64_t)x[14]<<8) + ((uint64_t)x[15]);
 
-	uint64_t v0 = *(uint64_t *)x;
-	uint64_t v1 = *((uint64_t *)x+1);
-
-	uint64_t h0 = *(uint64_t *)H;
-	uint64_t h1 = *((uint64_t *)H+1);
-
+	uint8_t temph;
 	uint8_t i = 0, j = 0;
-	uint64_t temp = 0x8000000000000000;
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE*4; i++ ) {
-		if ( temp & h0 ) {
-			z0 ^= v0;
-			z1 ^= v1;
-		}
-		temp = temp >> 1;
-		if ( v1 & 0x1 ) {
-			v1 = v1 >> 1;
-			if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-			v0 = v0 >> 1;
-		} else {
-			v1 = v1 >> 1;
-			if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-			v0 = v0 >> 1;
-			v0 ^= FIELD_CONST;
-		}
-	}
-	for ( i = BLOCK_CIPHER_BLOCK_SIZE*4; i < BLOCK_CIPHER_BLOCK_SIZE*8; i++ ) {
-		if ( temp & h0 ) {
-			z0 ^= v0;
-			z1 ^= v1;
-		}
-		temp = temp >> 1;
-		if ( v1 & 0x1 ) {
-			v1 = v1 >> 1;
-			if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-			v0 = v0 >> 1;
-		} else {
-			v1 = v1 >> 1;
-			if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-			v0 = v0 >> 1;
-			v0 ^= FIELD_CONST;
+	uint64_t temp = 0x1;
+	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		temph = H[i];
+		for ( j = 0; j < 8; j++ ) {
+			if ( 0x80 & temph ) {
+				z0 ^= v0;
+				z1 ^= v1;
+			}
+			if ( v1 & 0x1 ) {
+				v1 = v1 >> 1;
+				if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
+				v0 = v0 >> 1;
+				v0 ^= FIELD_CONST;
+			} else {
+				v1 = v1 >> 1;
+				if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
+				v0 = v0 >> 1;
+			}
+			temph = temph << 1;
 		}
 	}
-	*(uint64_t *)x = v0;
-	*((uint64_t *)x+1) = v1;
+	// get result
+	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
+		x[BLOCK_CIPHER_BLOCK_SIZE/2-i] = (uint8_t)z0;
+		z0 = z0 >> 8;
+		x[BLOCK_CIPHER_BLOCK_SIZE-i] = (uint8_t)z1;
+		z1 = z1 >> 8;
+	}
 }
 
 /**
@@ -140,18 +132,20 @@ static void ghash(const uint8_t *add,
 	*((uint64_t *)output+1) = 0;
 
 	/* compute with add */
-	int i = 0;
+	int i = 0, j = 0;
 	for ( i = 0; i < add_len/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 		*(uint64_t *)output ^= *(uint64_t *)add;
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
 		add += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(output);
 	}
-	// the remaining add
-	for ( i = 0; i < add_len%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-		*output ^= *add;
+	if ( add_len % BLOCK_CIPHER_BLOCK_SIZE ) {
+		// the remaining add
+		for ( i = 0; i < add_len%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+			*output ^= *add;
+		}
+		multi(output);
 	}
-	multi(output);
 
 	/* compute with cipher text */
 	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
@@ -159,16 +153,28 @@ static void ghash(const uint8_t *add,
 		*((uint64_t *)output+1) ^= *((uint64_t *)cipher+1);
 		cipher += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(output);
+		printf("X%d:     ", (i+1));
+		printf_output(output);
 	}
-	// the remaining cipher
-	for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-		*output ^= *cipher;
+	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
+		// the remaining cipher
+		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+			*output ^= *cipher;
+		}
+		multi(output);
 	}
-	multi(output);
 
-	/**/
-	*(uint64_t *)output ^= (uint64_t)(add_len*8); // len(A) = (uint64_t)(add_len*8)
-	*((uint64_t *)output+1) ^= (uint64_t)(length*8); // len(C) = (uint64_t)(length*8)
+	/* eor (len(A)||len(C)) */
+	uint64_t temp_len = (uint64_t)(add_len*8); // len(A) = (uint64_t)(add_len*8)
+	for ( i = 0; i < 8; i++ ) {
+		output[7-i] ^= (uint8_t)temp_len;
+		temp_len = temp_len >> 8;
+	}
+	temp_len = (uint64_t)(length*8); // len(C) = (uint64_t)(length*8)
+	for ( i = 0; i < 8; i++ ) {
+		output[15-i] ^= (uint8_t)temp_len;
+		temp_len = temp_len >> 8;
+	}
 	multi(output);
 }
 
@@ -259,8 +265,9 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 
 	// compute tag, y0 is useless now
 	ghash((const uint8_t *)add, add_len, (const uint8_t*)output_temp, length, y0);
+	printf("GHASH(H, A, C):");
+	printf_output(y0);
 	for ( i = 0; i < tag_len; i++ ) {
-//		tag[i] = y0[BLOCK_CIPHER_BLOCK_SIZE-tag_len+i] ^ ency0[BLOCK_CIPHER_BLOCK_SIZE-tag_len+i];
 		tag[i] = y0[i] ^ ency0[i];
 	}
 	return MBEDTLS_BLOCK_CIPHER_SUC;

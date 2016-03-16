@@ -17,7 +17,7 @@
 
 #define BLOCK_CIPHER_BLOCK_SIZE (16) /* block size in bytes, all the ciphers are 64-bit */
 #define DEFAULT_IV_LEN (12) /* default iv length in bytes */
-#define FIELD_CONST (0xe100000000000000) /* the const value in filed GF(2^64) */
+#define FIELD_CONST (0xe100000000000000) /* the const value in filed */
 
 typedef enum {
 	MBEDTLS_BLOCK_CIPHER_FAIL = -1,

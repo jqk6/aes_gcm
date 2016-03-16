@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 			(unsigned char *)tag,
 			tag_len);
 
-		printf("Tag:\n");
+		printf("Tag:    ");
 		for (i = 0; i < 4; i++) {
 			printf("%x %x %x %x ", tag[4*i+0], tag[4*i+1], tag[4*i+2], tag[4*i+3]);
 		}
