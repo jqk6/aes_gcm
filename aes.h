@@ -23,6 +23,8 @@
  */
 #define Nr (10)
 
+#define ROUND_KEY_SIZE (176)
+
 void aes_key_schedule_128(uint8_t *w, const uint8_t *key);
 
 void aes_encrypt_128(const uint8_t *w, const uint8_t *in, uint8_t *out);

@@ -34,7 +34,7 @@ int mbedtls_gcm_setkey( void *ctx,
 	temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
 	temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
 	temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
-	temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*160);
+	temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
 	if ( NULL == temp_ctx->rk ) { result = MBEDTLS_BLOCK_CIPHER_FAIL; }
 	else { result = (temp_ctx->block_key_schedule)(temp_ctx->rk, (const uint8_t *)key);}
 	return result;
@@ -42,13 +42,10 @@ int mbedtls_gcm_setkey( void *ctx,
 
 void mbedtls_gcm_free( void *ctx ) {
 	if ( ctx ) {
-		// the ctx and ctx->rk point to the same place, so call free() one time is enough
-/*
 		mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
 		if ( temp_ctx->rk ) {
 			free((void*)(temp_ctx->rk));
 		}
-*/
 		free(ctx);
 	}
 }
@@ -175,11 +172,6 @@ static void ghash(const uint8_t *add,
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 			*(output+i) ^= *(cipher+i);
 		}
-		if ( length < BLOCK_CIPHER_BLOCK_SIZE ) {
-			for ( i = length%BLOCK_CIPHER_BLOCK_SIZE; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-				*(output+i) = 0;
-			}
-		}
 		multi(output);
 #if defined(DEBUG)
 		printf("X+:             ");
@@ -189,12 +181,12 @@ static void ghash(const uint8_t *add,
 
 	/* eor (len(A)||len(C)) */
 	uint64_t temp_len = (uint64_t)(add_len*8); // len(A) = (uint64_t)(add_len*8)
-	for ( i = 1; i < BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
+	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
 		output[BLOCK_CIPHER_BLOCK_SIZE/2-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
 	temp_len = (uint64_t)(length*8); // len(C) = (uint64_t)(length*8)
-	for ( i = 1; i < BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
+	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
 		output[BLOCK_CIPHER_BLOCK_SIZE-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
@@ -219,7 +211,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	if ( !temp_ctx || !(temp_ctx->rk) ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
 	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
 
-	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // the counter
+	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
 	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
 
 	/* set H */
@@ -275,7 +267,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		*(uint64_t*)output ^= *(uint64_t*)input;
 		*((uint64_t*)output+1) ^= *((uint64_t*)input+1);
 		output += BLOCK_CIPHER_BLOCK_SIZE;
-		input += BLOCK_CIPHER_BLOCK_SIZE;
+	 	input += BLOCK_CIPHER_BLOCK_SIZE;
 	}
 	// the remaining plain text
 	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
@@ -284,13 +276,15 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		printf("Y+:             ");
 		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
-		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
+		// the last block size man be smaller than BLOCK_SIZE, can NOT be written directly.
+//		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
+		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
 #if defined(DEBUG)
 		printf("E(K, Y+):       ");
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-			*(output+i) ^= *(input+i);
+			*(output+i) = *(input+i) ^ *(y0+i);
 		}
 	}
 
