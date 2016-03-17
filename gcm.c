@@ -304,8 +304,14 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	for ( i = 0; i < tag_len; i++ ) {
 		tag[i] = y0[i] ^ ency0[i];
 	}
+#if defined(DEBUG)
+	printf("Tag:            ");
+	printf_output(tag, tag_len);
+#endif
+
 	return MBEDTLS_BLOCK_CIPHER_SUC;
 }
+
 
 /*
  * authenticated decryption
@@ -320,5 +326,70 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
               const unsigned char *input,
               size_t length,
               unsigned char *output ) {
+	mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
+	if ( !temp_ctx || !(temp_ctx->rk) ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
+	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
+
+	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
+	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
+	uint8_t temp[BLOCK_CIPHER_BLOCK_SIZE] = {0};
+
+#if defined(DEBUG)
+	printf("\n\nDecryption:\n");
+#endif
+	/* compute tag, y0 is useless now */
+	ghash((const uint8_t *)add, add_len, (const uint8_t*)input, length, temp);
+#if defined(DEBUG)
+	printf("GHASH(H, A, C): ");
+	printf_output(temp, BLOCK_CIPHER_BLOCK_SIZE);
+#endif
+
+	/* compute y0 (initilization vector) */
+	if (DEFAULT_IV_LEN == iv_len) {
+		*(uint32_t*)y0 = *(uint32_t*)iv;
+		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
+		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
+		y0[15] = 1;
+	} else {
+		ghash(NULL, 0, (const uint8_t*)iv, iv_len, y0);
+	}
+
+	/* compute ency0 = ENC(K, y0) */
+	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
+
+	/* authentication */
+	int i = 0;
+	for ( i = 0; i < tag_len; i++ ) {
+		if ( tag[i] != (ency0[i]^temp[i]) ) { break; }
+	}
+	if ( i != tag_len ) {
+		return MBEDTLS_BLOCK_CIPHER_FAIL;
+	}
+
+	/* decyrption */
+	uint8_t * output_temp = output;
+	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		incr(y0);
+		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
+		*(uint64_t*)output ^= *(uint64_t*)input;
+		*((uint64_t*)output+1) ^= *((uint64_t*)input+1);
+		output += BLOCK_CIPHER_BLOCK_SIZE;
+	 	input += BLOCK_CIPHER_BLOCK_SIZE;
+	}
+	// the remaining plain text
+	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
+		incr(y0);
+		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
+		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+			*(output+i) = *(input+i) ^ *(y0+i);
+		}
+	}
+
+#if defined(DEBUG)
+	printf("plain:          ");
+	printf_output(output_temp, length);
+#endif
+
 	return MBEDTLS_BLOCK_CIPHER_SUC;
+
 }

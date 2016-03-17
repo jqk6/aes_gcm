@@ -5,7 +5,7 @@
 #include "aes.h"
 #include "gcm.h"
 
-#define TEST_CASE (1)
+#define TEST_CASE (5)
 
 int main(int argc, char *argv[]) {
 	 
@@ -106,12 +106,16 @@ int main(int argc, char *argv[]) {
 			(unsigned char *)tag,
 			tag_len);
 
-		printf("Tag:            ");
-		uint8_t i;
-		for (i = 0; i < 4; i++) {
-			printf("%x %x %x %x ", tag[4*i+0], tag[4*i+1], tag[4*i+2], tag[4*i+3]);
-		}
-		printf("\n");
+		mbedtls_gcm_auth_decrypt( context,
+			(const unsigned char *)iv,
+			iv_len,
+			(const unsigned char *)add,
+			add_len,
+			(const unsigned char *)tag,
+			tag_len,
+			(const unsigned char *)output,
+			length,
+			(unsigned char *)input );
 	}
 
 	mbedtls_gcm_free( context);
