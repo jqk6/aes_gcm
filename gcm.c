@@ -80,8 +80,8 @@ static void otherT(uint8_t T[][256][16]) {
 		vl = ((uint64_t)T[0][i][8]<<56) + ((uint64_t)T[0][i][9]<<48) + ((uint64_t)T[0][i][10]<<40) + ((uint64_t)T[0][i][11]<<32) +
 			((uint64_t)T[0][i][12]<<24) + ((uint64_t)T[0][i][13]<<16) + ((uint64_t)T[0][i][14]<<8) + ((uint64_t)T[0][i][15]);
 		zh = zl = 0;
-		for ( j = 0; j <= 128; j++ ) {
-			if ( j > 0 && 0 == j % 8 ) {
+		for ( j = 0; j <= 120; j++ ) {
+			if ( (j > 0) && (0 == j%8) ) {
 				zh ^= vh;
 				zl ^= vl;
 				for ( k = 1; k <= BLOCK_CIPHER_BLOCK_SIZE/2; k++ ) {
@@ -116,20 +116,21 @@ static void computeTable (uint8_t T[][256][16]) {
 	// zh is the higher 64-bit, zl is the lower 64-bit.
 	uint64_t zh = 0, zl = 0;
 	// vh is the higher 64-bit, vl is the lower 64-bit.
+	int i = 0, j = 0;
+
 	uint64_t vh = ((uint64_t)H[0]<<56) + ((uint64_t)H[1]<<48) + ((uint64_t)H[2]<<40) + ((uint64_t)H[3]<<32) +
 			((uint64_t)H[4]<<24) + ((uint64_t)H[5]<<16) + ((uint64_t)H[6]<<8) + ((uint64_t)H[7]);
 	uint64_t vl = ((uint64_t)H[8]<<56) + ((uint64_t)H[9]<<48) + ((uint64_t)H[10]<<40) + ((uint64_t)H[11]<<32) +
 			((uint64_t)H[12]<<24) + ((uint64_t)H[13]<<16) + ((uint64_t)H[14]<<8) + ((uint64_t)H[15]);
-
 	uint8_t temph;
-	int i = 0, j = 0;
-	
+
 	uint64_t tempvh = vh;
 	uint64_t tempvl = vl;
 	for ( i = 0; i < 256; i++ ) {
-		temph = i;
+		temph = (uint8_t)i;
 		vh = tempvh;
 		vl = tempvl;
+
 		zh = zl = 0;
 		for ( j = 0; j < 8; j++ ) {
 			if ( 0x80 & temph ) {
@@ -161,9 +162,14 @@ static void computeTable (uint8_t T[][256][16]) {
 
 static void multi(uint8_t T[][256][16], uint8_t *output) {
 	uint8_t i, j;
+	uint8_t temp[16];
+	for ( i = 0; i < 16; i++ ) {
+		temp[i] = output[i];
+		output[i] = 0;
+	}
 	for ( i = 0; i < 16; i++ ) {
 		for ( j = 0; j < 16; j++ ) {
-			output[j] ^= T[i][*(output+i)][j];
+			output[j] ^= T[i][*(temp+i)][j];
 		}
 	}
 }
