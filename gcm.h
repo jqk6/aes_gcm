@@ -41,6 +41,7 @@ typedef struct {
 	block_key_schedule_p	block_key_schedule;
 	block_encrypt_p		block_encrypt;
 	block_decrypt_p		block_decrypt;
+	uint8_t T[16][256][16];
 } mbedtls_block_cipher_context;
 
 /**

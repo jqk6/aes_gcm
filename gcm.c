@@ -219,6 +219,8 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	int i = 0;
 	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { H[i] = ency0[i]; }
 
+	computeTable();
+
 #if defined(DEBUG)
 	printf("H:              ");
 	printf_output(H, BLOCK_CIPHER_BLOCK_SIZE);
