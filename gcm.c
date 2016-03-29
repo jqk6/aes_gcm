@@ -61,46 +61,110 @@ void printf_output(uint8_t *p, size_t length) {
 	printf("\n");
 }
 
-/*
- * compute the value of x = x.h, where x and h all belong to GF(2^64)
+/**
+ * compute T1, T2, ... , and T15
+ * T1 = T0 . P^8
+ * T2 = T1 . P^8 = T0 . P^16
+ * T3 = T2 . P^8 = T0 . P^24
+ * ...
+ * T15 = T14 . P^8 = T0 . P^120
+ *
  */
-static void multi (uint8_t * x) {
+static void otherT(uint8_t T[][256][16]) {
+	int i = 0, j = 0, k = 0;
+	uint64_t vh, vl;
+	uint64_t zh, zl;
+	for ( i = 0; i < 256; i++ ) {
+		vh = ((uint64_t)T[0][i][0]<<56) + ((uint64_t)T[0][i][1]<<48) + ((uint64_t)T[0][i][2]<<40) + ((uint64_t)T[0][i][3]<<32) +
+			((uint64_t)T[0][i][4]<<24) + ((uint64_t)T[0][i][5]<<16) + ((uint64_t)T[0][i][6]<<8) + ((uint64_t)T[0][i][7]);
+		vl = ((uint64_t)T[0][i][8]<<56) + ((uint64_t)T[0][i][9]<<48) + ((uint64_t)T[0][i][10]<<40) + ((uint64_t)T[0][i][11]<<32) +
+			((uint64_t)T[0][i][12]<<24) + ((uint64_t)T[0][i][13]<<16) + ((uint64_t)T[0][i][14]<<8) + ((uint64_t)T[0][i][15]);
+		zh = zl = 0;
+		for ( j = 0; j <= 128; j++ ) {
+			if ( j > 0 && 0 == j % 8 ) {
+				zh ^= vh;
+				zl ^= vl;
+				for ( k = 1; k <= BLOCK_CIPHER_BLOCK_SIZE/2; k++ ) {
+					T[j/8][i][BLOCK_CIPHER_BLOCK_SIZE/2-k] = (uint8_t)zh;
+					zh = zh >> 8;
+					T[j/8][i][BLOCK_CIPHER_BLOCK_SIZE-k] = (uint8_t)zl;
+					zl = zl >> 8;
+				}
+				zh = zl = 0;
+			}
+			if ( vl & 0x1 ) {
+				vl = vl >> 1;
+				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
+				vh = vh >> 1;
+				vh ^= FIELD_CONST;
+			} else {
+				vl = vl >> 1;
+				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
+				vh = vh >> 1;
+			}
+		}
+	}
+}
 
-	uint64_t z0 = 0, z1 = 0;
-	uint64_t v0 = ((uint64_t)x[0]<<56) + ((uint64_t)x[1]<<48) + ((uint64_t)x[2]<<40) + ((uint64_t)x[3]<<32) +
-			((uint64_t)x[4]<<24) + ((uint64_t)x[5]<<16) + ((uint64_t)x[6]<<8) + ((uint64_t)x[7]);
-	uint64_t v1 = ((uint64_t)x[8]<<56) + ((uint64_t)x[9]<<48) + ((uint64_t)x[10]<<40) + ((uint64_t)x[11]<<32) +
-			((uint64_t)x[12]<<24) + ((uint64_t)x[13]<<16) + ((uint64_t)x[14]<<8) + ((uint64_t)x[15]);
+/*
+ * compute table T0 = X0 . H
+ * the value of first byte of X0 is between [0, 255], other bytes are all 0
+ * 
+ */
+static void computeTable (uint8_t T[][256][16]) {
+
+	// zh is the higher 64-bit, zl is the lower 64-bit.
+	uint64_t zh = 0, zl = 0;
+	// vh is the higher 64-bit, vl is the lower 64-bit.
+	uint64_t vh = ((uint64_t)H[0]<<56) + ((uint64_t)H[1]<<48) + ((uint64_t)H[2]<<40) + ((uint64_t)H[3]<<32) +
+			((uint64_t)H[4]<<24) + ((uint64_t)H[5]<<16) + ((uint64_t)H[6]<<8) + ((uint64_t)H[7]);
+	uint64_t vl = ((uint64_t)H[8]<<56) + ((uint64_t)H[9]<<48) + ((uint64_t)H[10]<<40) + ((uint64_t)H[11]<<32) +
+			((uint64_t)H[12]<<24) + ((uint64_t)H[13]<<16) + ((uint64_t)H[14]<<8) + ((uint64_t)H[15]);
 
 	uint8_t temph;
-	uint8_t i = 0, j = 0;
-	uint64_t temp = 0x1;
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
-		temph = H[i];
+	int i = 0, j = 0;
+	
+	uint64_t tempvh = vh;
+	uint64_t tempvl = vl;
+	for ( i = 0; i < 256; i++ ) {
+		temph = i;
+		vh = tempvh;
+		vl = tempvl;
+		zh = zl = 0;
 		for ( j = 0; j < 8; j++ ) {
 			if ( 0x80 & temph ) {
-				z0 ^= v0;
-				z1 ^= v1;
+				zh ^= vh;
+				zl ^= vl;
 			}
-			if ( v1 & 0x1 ) {
-				v1 = v1 >> 1;
-				if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-				v0 = v0 >> 1;
-				v0 ^= FIELD_CONST;
+			if ( vl & 0x1 ) {
+				vl = vl >> 1;
+				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
+				vh = vh >> 1;
+				vh ^= FIELD_CONST;
 			} else {
-				v1 = v1 >> 1;
-				if ( v0 & 0x1) { v1 ^= 0x8000000000000000;}
-				v0 = v0 >> 1;
+				vl = vl >> 1;
+				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
+				vh = vh >> 1;
 			}
 			temph = temph << 1;
 		}
+		// get result
+		for ( j = 1; j <= BLOCK_CIPHER_BLOCK_SIZE/2; j++ ) {
+			T[0][i][BLOCK_CIPHER_BLOCK_SIZE/2-j] = (uint8_t)zh;
+			zh = zh >> 8;
+			T[0][i][BLOCK_CIPHER_BLOCK_SIZE-j] = (uint8_t)zl;
+			zl = zl >> 8;
+		}
 	}
-	// get result
-	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
-		x[BLOCK_CIPHER_BLOCK_SIZE/2-i] = (uint8_t)z0;
-		z0 = z0 >> 8;
-		x[BLOCK_CIPHER_BLOCK_SIZE-i] = (uint8_t)z1;
-		z1 = z1 >> 8;
+	otherT(T);
+}
+
+static void multi(uint8_t T[][256][16], uint8_t *output) {
+	uint8_t i, j;
+	for ( i = 0; i < 16; i++ ) {
+		for ( j = 0; j < 16; j++ ) {
+			output[j] ^= T[i][*(output+i)][j];
+		}
 	}
 }
 
@@ -121,7 +185,8 @@ static void incr (uint8_t *iv) {
  * a: additional authenticated data
  * c: the cipher text or initial vector
  */
-static void ghash(const uint8_t *add, 
+static void ghash(uint8_t T[][256][16],
+		const uint8_t *add, 
 		size_t add_len,
 		const uint8_t *cipher,
 		size_t length,
@@ -136,7 +201,7 @@ static void ghash(const uint8_t *add,
 		*(uint64_t *)output ^= *(uint64_t *)add;
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
 		add += BLOCK_CIPHER_BLOCK_SIZE;
-		multi(output);
+		multi(T, output);
 #if defined(DEBUG)
 		printf("X+:             ");
 		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
@@ -148,7 +213,7 @@ static void ghash(const uint8_t *add,
 		for ( i = 0; i < add_len%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 			*(output+i) ^= *(add+i);
 		}
-		multi(output);
+		multi(T, output);
 #if defined(DEBUG)
 		printf("X+:             ");
 		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
@@ -160,7 +225,7 @@ static void ghash(const uint8_t *add,
 		*(uint64_t *)output ^= *(uint64_t *)cipher;
 		*((uint64_t *)output+1) ^= *((uint64_t *)cipher+1);
 		cipher += BLOCK_CIPHER_BLOCK_SIZE;
-		multi(output);
+		multi(T, output);
 #if defined(DEBUG)
 		printf("X+:             ");
 		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
@@ -172,7 +237,7 @@ static void ghash(const uint8_t *add,
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 			*(output+i) ^= *(cipher+i);
 		}
-		multi(output);
+		multi(T, output);
 #if defined(DEBUG)
 		printf("X+:             ");
 		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
@@ -190,7 +255,7 @@ static void ghash(const uint8_t *add,
 		output[BLOCK_CIPHER_BLOCK_SIZE-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
-	multi(output);
+	multi(T, output);
 }
 
 /**
@@ -219,7 +284,10 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	int i = 0;
 	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { H[i] = ency0[i]; }
 
-	computeTable();
+#if defined(DEBUG)
+	printf("Compute table:\n");
+#endif
+	computeTable(temp_ctx->T);
 
 #if defined(DEBUG)
 	printf("H:              ");
@@ -233,7 +301,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
 		y0[15] = 1;
 	} else {
-		ghash(NULL, 0, (const uint8_t*)iv, iv_len, y0);
+		ghash(temp_ctx->T, NULL, 0, (const uint8_t*)iv, iv_len, y0);
 	}
 
 #if defined(DEBUG)
@@ -296,7 +364,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 #endif
 
 	/* compute tag, y0 is useless now */
-	ghash((const uint8_t *)add, add_len, (const uint8_t*)output_temp, length, y0);
+	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)output_temp, length, y0);
 
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
@@ -340,7 +408,7 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 	printf("\n\nDecryption:\n");
 #endif
 	/* compute tag, y0 is useless now */
-	ghash((const uint8_t *)add, add_len, (const uint8_t*)input, length, temp);
+	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)input, length, temp);
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
 	printf_output(temp, BLOCK_CIPHER_BLOCK_SIZE);
@@ -353,7 +421,7 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
 		y0[15] = 1;
 	} else {
-		ghash(NULL, 0, (const uint8_t*)iv, iv_len, y0);
+		ghash(temp_ctx->T, NULL, 0, (const uint8_t*)iv, iv_len, y0);
 	}
 
 	/* compute ency0 = ENC(K, y0) */

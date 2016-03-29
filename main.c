@@ -5,7 +5,7 @@
 #include "aes.h"
 #include "gcm.h"
 
-#define TEST_CASE (1)
+#define TEST_CASE (2)
 
 int main(int argc, char *argv[]) {
 	 
