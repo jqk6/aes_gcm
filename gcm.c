@@ -8,6 +8,9 @@
  *
  * Written in 2016
  *
+ * @Author LuoPeng(luopeng@iie.ac.cn)
+ *	   XiangZejun(xiangzejun@iie.ac.cn)
+ *
  */
 
 /**
@@ -50,16 +53,6 @@ void mbedtls_gcm_free( void *ctx ) {
 		free(ctx);
 	}
 }
-
-#if defined(DEBUG)
-static void printf_output(uint8_t *p, size_t length) {
-	uint8_t i = 0;
-	for ( i = 0; i < length; i++ ) {
-		printf("%x ", p[i]);
-	}
-	printf("\n");
-}
-#endif
 
 /**
  * compute T1, T2, ... , and T15
@@ -199,6 +192,41 @@ static void incr (uint8_t *iv) {
 	iv[0] = (uint8_t)(temp>>24);
 }
 
+#if defined(DEBUG)
+static int countY = 0;
+
+static void printf_output(uint8_t *p, size_t length) {
+	uint8_t i = 0, j = 0;
+	if ( length > BLOCK_CIPHER_BLOCK_SIZE) {
+		// first block
+		for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+			printf("%2x ", p[i]);
+		}
+		printf("\n");
+		// middle blocks
+		for ( i = 1; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+			printf("                ");
+			for ( j = 0; j < BLOCK_CIPHER_BLOCK_SIZE; j++ ) {
+				printf("%2x ", p[i*BLOCK_CIPHER_BLOCK_SIZE+j]);
+			}
+			printf("\n");
+		}
+		// last block
+		printf("                ");
+		i = length/BLOCK_CIPHER_BLOCK_SIZE*BLOCK_CIPHER_BLOCK_SIZE;
+		for ( ; i < length; i++ ) {
+			printf("%2x ", p[i]);
+		}
+		printf("\n");
+	} else {
+		for ( i = 0; i < length; i++ ) {
+			printf("%2x ", p[i]);
+		}
+		printf("\n");
+	}
+}
+#endif
+
 /*
  * a: additional authenticated data
  * c: the cipher text or initial vector
@@ -220,10 +248,6 @@ static void ghash(uint8_t T[][256][16],
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
 		add += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(T, output);
-#if defined(DEBUG)
-		printf("X+:             ");
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
-#endif
 	}
 
 	if ( add_len % BLOCK_CIPHER_BLOCK_SIZE ) {
@@ -232,10 +256,6 @@ static void ghash(uint8_t T[][256][16],
 			*(output+i) ^= *(add+i);
 		}
 		multi(T, output);
-#if defined(DEBUG)
-		printf("X+:             ");
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
-#endif
 	}
 
 	/* compute with cipher text */
@@ -244,11 +264,6 @@ static void ghash(uint8_t T[][256][16],
 		*((uint64_t *)output+1) ^= *((uint64_t *)cipher+1);
 		cipher += BLOCK_CIPHER_BLOCK_SIZE;
 		multi(T, output);
-#if defined(DEBUG)
-		printf("X+:             ");
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
-#endif
-
 	}
 	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
 		// the remaining cipher
@@ -256,10 +271,6 @@ static void ghash(uint8_t T[][256][16],
 			*(output+i) ^= *(cipher+i);
 		}
 		multi(T, output);
-#if defined(DEBUG)
-		printf("X+:             ");
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
-#endif
 	}
 
 	/* eor (len(A)||len(C)) */
@@ -303,7 +314,8 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { temp_ctx->H[i] = ency0[i]; }
 
 #if defined(DEBUG)
-	printf("Compute table:\n");
+	printf("\n----AUTH-ENCRYPTION----\n");
+	printf("COMPUTE TABLES\n");
 #endif
 	computeTable(temp_ctx->T, temp_ctx->H);
 
@@ -323,7 +335,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	}
 
 #if defined(DEBUG)
-	printf("Y0:             ");
+	printf("Y%d:             ", countY);
 	printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 
@@ -331,7 +343,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
 
 #if defined(DEBUG)
-	printf("E(K, Y0):       ");
+	printf("E(K, Y%d):       ", countY++);
 	printf_output(ency0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 
@@ -341,14 +353,14 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		incr(y0);
 
 #if defined(DEBUG)
-		printf("Y%d:             ", i+1);
+		printf("Y%d:             ", countY);
 		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 
 #if defined(DEBUG)
-		printf("E(K, Y%d):       ", i+1);
+		printf("E(K, Y%d):       ", countY++);
 		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 
@@ -361,14 +373,14 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
 		incr(y0);
 #if defined(DEBUG)
-		printf("Y+:             ");
+		printf("Y%d:             ", countY);
 		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 		// the last block size man be smaller than BLOCK_SIZE, can NOT be written directly.
 //		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
 #if defined(DEBUG)
-		printf("E(K, Y+):       ");
+		printf("E(K, Y%d):       ", countY++);
 		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
@@ -377,7 +389,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	}
 
 #if defined(DEBUG)
-	printf("cipher:         ");
+	printf("CIPHER:         ");
 	printf_output(output_temp, length);
 #endif
 
@@ -393,7 +405,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		tag[i] = y0[i] ^ ency0[i];
 	}
 #if defined(DEBUG)
-	printf("Tag:            ");
+	printf("TAG:            ");
 	printf_output(tag, tag_len);
 #endif
 
@@ -423,7 +435,8 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 	uint8_t temp[BLOCK_CIPHER_BLOCK_SIZE] = {0};
 
 #if defined(DEBUG)
-	printf("\n\nDecryption:\n");
+	printf("\n----AUTH-DECRYPTION----\n");
+	countY = 0;
 #endif
 	/* compute tag, y0 is useless now */
 	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)input, length, temp);
@@ -474,7 +487,7 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 	}
 
 #if defined(DEBUG)
-	printf("plain:          ");
+	printf("PLAIN:          ");
 	printf_output(output_temp, length);
 #endif
 
