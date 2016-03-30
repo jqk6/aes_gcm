@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-#define BLOCK_CIPHER_BLOCK_SIZE (16) /* block size in bytes, all the ciphers are 64-bit */
+#define BLOCK_CIPHER_BLOCK_SIZE (16) /* block size in bytes, AES 128-128 */
 #define DEFAULT_IV_LEN (12) /* default iv length in bytes */
 #define FIELD_CONST (0xe100000000000000) /* the const value in filed */
 
@@ -41,7 +41,8 @@ typedef struct {
 	block_key_schedule_p	block_key_schedule;
 	block_encrypt_p		block_encrypt;
 	block_decrypt_p		block_decrypt;
-	uint8_t T[16][256][16];
+	uint8_t H[BLOCK_CIPHER_BLOCK_SIZE];
+	uint8_t T[BLOCK_CIPHER_BLOCK_SIZE][256][BLOCK_CIPHER_BLOCK_SIZE];
 } mbedtls_block_cipher_context;
 
 /**
@@ -94,9 +95,9 @@ void mbedtls_gcm_free( void *ctx );
  * @par ctx	GCM context
  * @par iv	an initialization vector IV, that can have any number of bits between 1 and 2^64.
  * 		For a fixed value of the key, each IV value must be distinct, but need not have equal lengths.
- *		the value is (0^32||IV) if length of IV is 32.
+ *		the value is (0^32||IV) if length of IV is 96.
  * 		@note	iv can NOT be NULL.
- * @par iv_len	length of IV, the recommended length is 32-bit.
+ * @par iv_len	length of IV, the recommended length is 96-bit.
  * 		@note	iv_len can NOT be 0.
  * @par add	additional authenticated data. It includes addresses, ports, sequence numbers, protocal version
  * 		numbers, and other fields that indicate how the plaintext should be handled, forwarded and processed.
@@ -137,7 +138,7 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
  * @par ctx	GCM context
  * @par iv	an initialization vector IV, that can have any number of bits between 1 and 2^64.
  * 		For a fixed value of the key, each IV value must be distinct, but need not have equal lengths.
- * @par iv_len	length of IV, the recommended length is 32-bit.
+ * @par iv_len	length of IV, the recommended length is 96-bit.
  * @par add	additional authenticated data. It includes addresses, ports, sequence numbers, protocal version
  * 		numbers, and other fields that indicate how the plaintext should be handled, forwarded and processed.
  * @par add_len	ength of additional data

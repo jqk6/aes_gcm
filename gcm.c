@@ -10,6 +10,10 @@
  *
  */
 
+/**
+ * Only for AES 128-128
+ */
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -22,9 +26,6 @@ void *mbedtls_gcm_init() {
 	return malloc(sizeof(mbedtls_gcm_context));
 }
 
-/**
- * Just AES 128-128
- */
 int mbedtls_gcm_setkey( void *ctx,
                         const unsigned char *key,
                         unsigned int keybits ) {
@@ -50,24 +51,28 @@ void mbedtls_gcm_free( void *ctx ) {
 	}
 }
 
-/* the const multi value */
-static uint8_t H[16];
-
-void printf_output(uint8_t *p, size_t length) {
+#if defined(DEBUG)
+static void printf_output(uint8_t *p, size_t length) {
 	uint8_t i = 0;
 	for ( i = 0; i < length; i++ ) {
 		printf("%x ", p[i]);
 	}
 	printf("\n");
 }
+#endif
 
 /**
  * compute T1, T2, ... , and T15
+ * suppose 0^n is a string with n bit zeros, s1||s2 is a jointed string of s1 and s2
+ * 
  * T1 = T0 . P^8
+ * 	where P^8 = 0^8 || 1 || 0^119
  * T2 = T1 . P^8 = T0 . P^16
+ * 	where P^16 = 0^16 || 1 || 0^111
  * T3 = T2 . P^8 = T0 . P^24
  * ...
  * T15 = T14 . P^8 = T0 . P^120
+ * 	where P^120 = 0^120 || 1 || 0^7
  *
  */
 static void otherT(uint8_t T[][256][16]) {
@@ -75,10 +80,10 @@ static void otherT(uint8_t T[][256][16]) {
 	uint64_t vh, vl;
 	uint64_t zh, zl;
 	for ( i = 0; i < 256; i++ ) {
-		vh = ((uint64_t)T[0][i][0]<<56) + ((uint64_t)T[0][i][1]<<48) + ((uint64_t)T[0][i][2]<<40) + ((uint64_t)T[0][i][3]<<32) +
-			((uint64_t)T[0][i][4]<<24) + ((uint64_t)T[0][i][5]<<16) + ((uint64_t)T[0][i][6]<<8) + ((uint64_t)T[0][i][7]);
-		vl = ((uint64_t)T[0][i][8]<<56) + ((uint64_t)T[0][i][9]<<48) + ((uint64_t)T[0][i][10]<<40) + ((uint64_t)T[0][i][11]<<32) +
-			((uint64_t)T[0][i][12]<<24) + ((uint64_t)T[0][i][13]<<16) + ((uint64_t)T[0][i][14]<<8) + ((uint64_t)T[0][i][15]);
+		vh = ((uint64_t)T[0][i][0]<<56) ^ ((uint64_t)T[0][i][1]<<48) ^ ((uint64_t)T[0][i][2]<<40) ^ ((uint64_t)T[0][i][3]<<32) ^
+			((uint64_t)T[0][i][4]<<24) ^ ((uint64_t)T[0][i][5]<<16) ^ ((uint64_t)T[0][i][6]<<8) ^ ((uint64_t)T[0][i][7]);
+		vl = ((uint64_t)T[0][i][8]<<56) ^ ((uint64_t)T[0][i][9]<<48) ^ ((uint64_t)T[0][i][10]<<40) ^ ((uint64_t)T[0][i][11]<<32) ^
+			((uint64_t)T[0][i][12]<<24) ^ ((uint64_t)T[0][i][13]<<16) ^ ((uint64_t)T[0][i][14]<<8) ^ ((uint64_t)T[0][i][15]);
 		zh = zl = 0;
 		for ( j = 0; j <= 120; j++ ) {
 			if ( (j > 0) && (0 == j%8) ) {
@@ -106,32 +111,37 @@ static void otherT(uint8_t T[][256][16]) {
 	}
 }
 
-/*
+/**
+ * @purpose
  * compute table T0 = X0 . H
- * the value of first byte of X0 is between [0, 255], other bytes are all 0
- * 
+ * only the first byte of X0 is nonzero, other bytes are all 0
+ * @T
+ * the final tables: 16 tables in total, each has 256 elements, the value of which is 16 bytes
+ * @H
+ * 128-bit, H = E(K, 0^128)
+ * the leftmost(most significant) bit of H[0] is bit-0 of H(in GCM)
+ * the rightmost(least significant) bit of H[15] is bit-127 of H(in GCM)
  */
-static void computeTable (uint8_t T[][256][16]) {
+static void computeTable (uint8_t T[][256][16], uint8_t H[]) {
 
-	// zh is the higher 64-bit, zl is the lower 64-bit.
+	// zh is the higher 64-bit, zl is the lower 64-bit
 	uint64_t zh = 0, zl = 0;
-	// vh is the higher 64-bit, vl is the lower 64-bit.
-	int i = 0, j = 0;
-
-	uint64_t vh = ((uint64_t)H[0]<<56) + ((uint64_t)H[1]<<48) + ((uint64_t)H[2]<<40) + ((uint64_t)H[3]<<32) +
-			((uint64_t)H[4]<<24) + ((uint64_t)H[5]<<16) + ((uint64_t)H[6]<<8) + ((uint64_t)H[7]);
-	uint64_t vl = ((uint64_t)H[8]<<56) + ((uint64_t)H[9]<<48) + ((uint64_t)H[10]<<40) + ((uint64_t)H[11]<<32) +
-			((uint64_t)H[12]<<24) + ((uint64_t)H[13]<<16) + ((uint64_t)H[14]<<8) + ((uint64_t)H[15]);
+	// vh is the higher 64-bit, vl is the lower 64-bit
+	uint64_t vh = ((uint64_t)H[0]<<56) ^ ((uint64_t)H[1]<<48) ^ ((uint64_t)H[2]<<40) ^ ((uint64_t)H[3]<<32) ^
+			((uint64_t)H[4]<<24) ^ ((uint64_t)H[5]<<16) ^ ((uint64_t)H[6]<<8) ^ ((uint64_t)H[7]);
+	uint64_t vl = ((uint64_t)H[8]<<56) ^ ((uint64_t)H[9]<<48) ^ ((uint64_t)H[10]<<40) ^ ((uint64_t)H[11]<<32) ^
+			((uint64_t)H[12]<<24) ^ ((uint64_t)H[13]<<16) ^ ((uint64_t)H[14]<<8) ^ ((uint64_t)H[15]);
 	uint8_t temph;
 
 	uint64_t tempvh = vh;
 	uint64_t tempvl = vl;
+	int i = 0, j = 0;
 	for ( i = 0; i < 256; i++ ) {
 		temph = (uint8_t)i;
 		vh = tempvh;
 		vl = tempvl;
-
 		zh = zl = 0;
+
 		for ( j = 0; j < 8; j++ ) {
 			if ( 0x80 & temph ) {
 				zh ^= vh;
@@ -160,6 +170,9 @@ static void computeTable (uint8_t T[][256][16]) {
 	otherT(T);
 }
 
+/**
+ * return the value of (output.H) by looking up tables
+ */
 static void multi(uint8_t T[][256][16], uint8_t *output) {
 	uint8_t i, j;
 	uint8_t temp[16];
@@ -176,7 +189,6 @@ static void multi(uint8_t T[][256][16], uint8_t *output) {
 
 /**
  * return the value of vector after increasement
- * only input the vector of 96-bit
  */
 static void incr (uint8_t *iv) {
 	iv += 12;
@@ -288,16 +300,16 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	/* set H */
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
 	int i = 0;
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { H[i] = ency0[i]; }
+	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { temp_ctx->H[i] = ency0[i]; }
 
 #if defined(DEBUG)
 	printf("Compute table:\n");
 #endif
-	computeTable(temp_ctx->T);
+	computeTable(temp_ctx->T, temp_ctx->H);
 
 #if defined(DEBUG)
 	printf("H:              ");
-	printf_output(H, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(temp_ctx->H, BLOCK_CIPHER_BLOCK_SIZE);
 #endif
 
 	/* compute y0 (initilization vector) */
