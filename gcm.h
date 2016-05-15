@@ -6,7 +6,8 @@
  *
  * Copyright (C) 2016 Chinese Academy of Sciences
  *
- * Written in 2016
+ * LuoPeng, luopeng@iie.ac.cn
+ * Updated in May 2016
  *
  */
 
@@ -15,9 +16,9 @@
 
 #include <stdint.h>
 
-#define BLOCK_CIPHER_BLOCK_SIZE (16) /* block size in bytes, AES 128-128 */
-#define DEFAULT_IV_LEN (12) /* default iv length in bytes */
-#define FIELD_CONST (0xe100000000000000) /* the const value in filed */
+#define BLOCK_CIPHER_BLOCK_SIZE (16)		/* block size in bytes, AES 128-128 */
+#define DEFAULT_IV_LEN (12)			/* default iv length in bytes */
+#define FIELD_CONST (0xe100000000000000)	/* the const value in filed */
 
 typedef enum {
 	MBEDTLS_BLOCK_CIPHER_FAIL = -1,
@@ -27,9 +28,9 @@ typedef enum {
 /*
  * basic functions of a block cipher
  */
-typedef int (*block_key_schedule_p)(uint8_t *w, const uint8_t *key);
-typedef int (*block_encrypt_p)(const uint8_t *w, const uint8_t *in, uint8_t *out);
-typedef int (*block_decrypt_p)(const uint8_t *w, const uint8_t *in, uint8_t *out);
+typedef int (*block_key_schedule_p)(const uint8_t *key, uint8_t *rk);
+typedef int (*block_encrypt_p)(const uint8_t *rk, const uint8_t *in, uint8_t *out);
+typedef int (*block_decrypt_p)(const uint8_t *rk, const uint8_t *in, uint8_t *out);
 
 /*
  * block cipher context structure

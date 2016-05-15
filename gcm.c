@@ -6,10 +6,10 @@
  *
  * Copyright (C) 2016 Chinese Academy of Sciences
  *
- * Written in 2016
+ * LuoPeng(luopeng@iie.ac.cn)
+ * XiangZejun(xiangzejun@iie.ac.cn)
  *
- * @Author LuoPeng(luopeng@iie.ac.cn)
- *	   XiangZejun(xiangzejun@iie.ac.cn)
+ * Updated in May 2016
  *
  */
 
@@ -39,8 +39,12 @@ int mbedtls_gcm_setkey( void *ctx,
 	temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
 	temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
 	temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
-	if ( NULL == temp_ctx->rk ) { result = MBEDTLS_BLOCK_CIPHER_FAIL; }
-	else { result = (temp_ctx->block_key_schedule)(temp_ctx->rk, (const uint8_t *)key);}
+	if ( NULL == temp_ctx->rk ) { 
+		result = MBEDTLS_BLOCK_CIPHER_FAIL;
+	}
+	else {
+		result = (temp_ctx->block_key_schedule)((const uint8_t *)key, temp_ctx->rk);
+	}
 	return result;
 }
 

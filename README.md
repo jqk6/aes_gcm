@@ -1,6 +1,6 @@
-### AES with GCM
+### AES-128 in GCM
 
-The C implementation of AES is from <a href="https://github.com/dhuertas/AES" target="_blank">here</a><br>
+The code is tested with GCC under Ubuntu 14.04.<br>
 
 GCM is from <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf" target="_blank">here</a><br>
 
