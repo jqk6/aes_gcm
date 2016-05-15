@@ -2,8 +2,8 @@
 
 Only AES-128 is used. The code is tested with GCC under Ubuntu 14.04.<br>
 
-AES-128 is from <a href="https://github.com/openluopworld/aes_128">here</a>.<br>
-GCM description is from <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf">here</a><br>
+C implementation of AES-128 is from <a href="https://github.com/openluopworld/aes_128">here</a>. Just copy the <i>aes.h</i> and <i>aes.c</i> files.<br>
+The design of <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf">The Galois/Counter Mode of Operation (GCM)</a><br>
 
 
 The API is as follows:<br>
