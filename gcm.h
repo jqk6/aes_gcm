@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef MBEDTLS_GCM_H
-#define MBEDTLS_GCM_H
+#ifndef GCM_H
+#define GCM_H
 
 #include <stdint.h>
 
@@ -21,9 +21,9 @@
 #define FIELD_CONST (0xe100000000000000)	/* the const value in filed */
 
 typedef enum {
-	MBEDTLS_BLOCK_CIPHER_FAIL = -1,
-	MBEDTLS_BLOCK_CIPHER_SUC = 0,
-} mbedtls_operation_result;
+	BLOCK_CIPHER_FAIL = -1,
+	BLOCK_CIPHER_SUC = 0,
+} operation_result;
 
 /*
  * basic functions of a block cipher
@@ -44,20 +44,20 @@ typedef struct {
 	block_decrypt_p		block_decrypt;
 	uint8_t H[BLOCK_CIPHER_BLOCK_SIZE];
 	uint8_t T[BLOCK_CIPHER_BLOCK_SIZE][256][BLOCK_CIPHER_BLOCK_SIZE];
-} mbedtls_block_cipher_context;
+} block_cipher_context;
 
 /**
  * GCM context structure
  */
-typedef mbedtls_block_cipher_context	mbedtls_gcm_context;
+typedef block_cipher_context	gcm_context;
 
 /**
  * @par purpose
  *	Initialize GCM context (just makes references valid)
- *	Makes the context ready for mbedtls_gcm_setkey() or
- *	mbedtls_gcm_free().
+ *	Makes the context ready for gcm_setkey() or
+ *	gcm_free().
  */
-void *mbedtls_gcm_init();
+void *gcm_init();
 
 /**
  * @par purpose
@@ -71,7 +71,7 @@ void *mbedtls_gcm_init();
  * @par return values
  *	0 if successful, or a cipher specific error code
  */
-int mbedtls_gcm_setkey( void *ctx,
+int gcm_setkey( void *ctx,
                         const unsigned char *key,
                         unsigned int keybits );
 
@@ -81,7 +81,7 @@ int mbedtls_gcm_setkey( void *ctx,
  *
  * @par ctx	GCM context to free
  */
-void mbedtls_gcm_free( void *ctx );
+void gcm_free( void *ctx );
 
 /**
  * @par purpose
@@ -116,7 +116,7 @@ void mbedtls_gcm_free( void *ctx );
  * @par return values
  * 		0 if successful
  */
-int mbedtls_gcm_crypt_and_tag( void *ctx,
+int gcm_crypt_and_tag( void *ctx,
 		const unsigned char *iv,
 		size_t iv_len,
 		const unsigned char *add,
@@ -151,9 +151,9 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
  *
  * @par return values
  * 		0 if successful and authenticated,
- *		MBEDTLS_ERR_GCM_AUTH_FAILED if tag does not match
+ *		ERR_GCM_AUTH_FAILED if tag does not match
  */
-int mbedtls_gcm_auth_decrypt( void *ctx,
+int gcm_auth_decrypt( void *ctx,
               const unsigned char *iv,
               size_t iv_len,
               const unsigned char *add,

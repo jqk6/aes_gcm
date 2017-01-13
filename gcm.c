@@ -25,22 +25,22 @@
 
 #define DEBUG (1)
 
-void *mbedtls_gcm_init() {
-	return malloc(sizeof(mbedtls_gcm_context));
+void *gcm_init() {
+	return malloc(sizeof(gcm_context));
 }
 
-int mbedtls_gcm_setkey( void *ctx,
+int gcm_setkey( void *ctx,
                         const unsigned char *key,
                         unsigned int keybits ) {
-	if ( NULL == ctx ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
-	int result = MBEDTLS_BLOCK_CIPHER_SUC ;
-	mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
+	if ( NULL == ctx ) { return BLOCK_CIPHER_FAIL; }
+	int result = BLOCK_CIPHER_SUC ;
+	gcm_context *temp_ctx = (gcm_context*)ctx;
 	temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
 	temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
 	temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
 	temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
 	if ( NULL == temp_ctx->rk ) { 
-		result = MBEDTLS_BLOCK_CIPHER_FAIL;
+		result = BLOCK_CIPHER_FAIL;
 	}
 	else {
 		result = (temp_ctx->block_key_schedule)((const uint8_t *)key, temp_ctx->rk);
@@ -48,9 +48,9 @@ int mbedtls_gcm_setkey( void *ctx,
 	return result;
 }
 
-void mbedtls_gcm_free( void *ctx ) {
+void gcm_free( void *ctx ) {
 	if ( ctx ) {
-		mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
+		gcm_context *temp_ctx = (gcm_context*)ctx;
 		if ( temp_ctx->rk ) {
 			free((void*)(temp_ctx->rk));
 		}
@@ -294,7 +294,7 @@ static void ghash(uint8_t T[][256][16],
 /**
  * authenticated encryption
  */
-int mbedtls_gcm_crypt_and_tag( void *ctx,
+int gcm_crypt_and_tag( void *ctx,
 		const unsigned char *iv,
 		size_t iv_len,
 		const unsigned char *add,
@@ -305,9 +305,9 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 		unsigned char *tag,
 		size_t tag_len) {
 
-	mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
-	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
+	gcm_context *temp_ctx = (gcm_context*)ctx;
+	if ( !temp_ctx || !(temp_ctx->rk) ) { return BLOCK_CIPHER_FAIL; }
+	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return BLOCK_CIPHER_FAIL; }
 
 	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
 	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
@@ -413,14 +413,14 @@ int mbedtls_gcm_crypt_and_tag( void *ctx,
 	printf_output(tag, tag_len);
 #endif
 
-	return MBEDTLS_BLOCK_CIPHER_SUC;
+	return BLOCK_CIPHER_SUC;
 }
 
 
 /*
  * authenticated decryption
  */
-int mbedtls_gcm_auth_decrypt( void *ctx,
+int gcm_auth_decrypt( void *ctx,
               const unsigned char *iv,
               size_t iv_len,
               const unsigned char *add,
@@ -430,9 +430,9 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
               const unsigned char *input,
               size_t length,
               unsigned char *output ) {
-	mbedtls_gcm_context *temp_ctx = (mbedtls_gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
-	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return MBEDTLS_BLOCK_CIPHER_FAIL; }
+	gcm_context *temp_ctx = (gcm_context*)ctx;
+	if ( !temp_ctx || !(temp_ctx->rk) ) { return BLOCK_CIPHER_FAIL; }
+	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return BLOCK_CIPHER_FAIL; }
 
 	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
 	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
@@ -468,7 +468,7 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 		if ( tag[i] != (ency0[i]^temp[i]) ) { break; }
 	}
 	if ( i != tag_len ) {
-		return MBEDTLS_BLOCK_CIPHER_FAIL;
+		return BLOCK_CIPHER_FAIL;
 	}
 
 	/* decyrption */
@@ -495,6 +495,6 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 	printf_output(output_temp, length);
 #endif
 
-	return MBEDTLS_BLOCK_CIPHER_SUC;
+	return BLOCK_CIPHER_SUC;
 
 }
