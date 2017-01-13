@@ -43,6 +43,7 @@ int gcm_crypt_and_tag( void *ctx,
 		unsigned char *output,
 		unsigned char *tag,
 		size_t tag_len);
+		
 int gcm_auth_decrypt( void *ctx,
 		const unsigned char *iv,
 		size_t iv_len,
@@ -57,4 +58,4 @@ int gcm_auth_decrypt( void *ctx,
 
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
 
-[The Galois/Counter Mode of Operation (GCM)]:(http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf)
+[The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
