@@ -30,9 +30,8 @@ void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_
 ```
 
 ### GCM
-The design of <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf">The Galois/Counter Mode of Operation (GCM)</a><br>
 
-The interfaces are as follows.<br>
+The interfaces of GCM are as follows.
 ```C
 int mbedtls_gcm_crypt_and_tag( void *ctx,
 		const unsigned char *iv,
@@ -56,4 +55,7 @@ int mbedtls_gcm_auth_decrypt( void *ctx,
 		unsigned char *output );
 ```
 
-According to <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf">The Galois/Counter Mode of Operation (GCM)</a>, 6 test cases are given is the code (<i>main.c</i>). You can just change the value of <b><i>TEST_CASE</i></b>(from 1 to 6) for different test vectors.<br>
+According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
+
+
+[The Galois/Counter Mode of Operation (GCM)]:(http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf)
