@@ -1,23 +1,35 @@
-### AES-128 in GCM
+# AES-128 in GCM
 
-Only AES-128 is used. The code is tested with GCC under Ubuntu 14.04.<br>
-
-The interfaces of AES are as follows. You can use your own implementation, <a href="https://github.com/openluopworld/aes_128">here</a> is an example (just copy the <i>aes.h</i> and <i>aes.c</i> files).<b>
+### AES-128
+Only AES-128 is used. The code is tested with GCC under Ubuntu 14.04. The interfaces of AES are as follows.
 ```C
 /**
- * Key schedule for AES-128
+ * @purpose:			Key schedule for AES-128
+ * @par[in]key:			16 bytes of master keys
+ * @par[out]roundkeys:	176 bytes of round keys
  */
 void aes_key_schedule_128(const uint8_t *key, uint8_t *roundkeys);
+
 /**
- * Encryption. Only one block is encrypted.
+ * @purpose:			Encryption. The length of plain and cipher should be one block (16 bytes).
+ *						The plaintext and ciphertext may point to the same memory
+ * @par[in]roundkeys:	round keys
+ * @par[in]plaintext:	plain text
+ * @par[out]ciphertext:	cipher text
  */
-void aes_encrypt_128(const uint8_t *roundkeys, const uint8_t *plain, uint8_t *cipher);
+void aes_encrypt_128(const uint8_t *roundkeys, const uint8_t *plaintext, uint8_t *ciphertext);
+
 /**
- * Decryption. Only one block is decrypted.
+ * @purpose:			Decryption. The length of plain and cipher should be one block (16 bytes).
+ *						The ciphertext and plaintext may point to the same memory
+ * @par[in]roundkeys:	round keys
+ * @par[in]ciphertext:	cipher text
+ * @par[out]plaintext:	plain text
  */
-void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *cipher, uint8_t *plain);
+void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_t *plaintext);
 ```
 
+### GCM
 The design of <a href="http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf">The Galois/Counter Mode of Operation (GCM)</a><br>
 
 The interfaces are as follows.<br>
