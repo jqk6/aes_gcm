@@ -1,4 +1,5 @@
 # AES-128 in GCM
+THIS CODE IS JUST FOR UNDERSTANDING AND STUDY.
 
 ### AES-128
 Only AES-128 is used. The code is tested with GCC under Ubuntu 14.04. The interfaces of AES are as follows.
@@ -31,7 +32,7 @@ void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_
 
 ### GCM
 
-The interfaces of GCM are as follows.
+The interfaces of GCM are as follows. It is implemented with look-up-tables.
 ```C
 int gcm_crypt_and_tag( void *ctx,
 		const unsigned char *iv,
@@ -43,7 +44,7 @@ int gcm_crypt_and_tag( void *ctx,
 		unsigned char *output,
 		unsigned char *tag,
 		size_t tag_len);
-		
+
 int gcm_auth_decrypt( void *ctx,
 		const unsigned char *iv,
 		size_t iv_len,
@@ -56,6 +57,10 @@ int gcm_auth_decrypt( void *ctx,
 		unsigned char *output );
 ```
 
+### How to test
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
+
+### TODO
+Since the tables are only generated in *gcm_crypt_and_tag()*, *gcm_auth_decrypt* can not be called seperately now.
 
 [The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
