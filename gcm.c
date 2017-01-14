@@ -13,10 +13,6 @@
  *
  */
 
-/**
- * Only for AES 128-128
- */
-
 #include <stdint.h>
 #include <stdlib.h>
 

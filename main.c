@@ -106,17 +106,17 @@ int main(int argc, char *argv[]) {
 	uint8_t tag[16] = {0};
 	size_t tag_len = 16;
 	
-	void * context = mbedtls_gcm_init();
+	void * context = gcm_init();
 	if ( !context ) { 
 		printf("malloc failed.\n");
 		return 0;
 	}
 	
 	int flag = -2;
-	flag = mbedtls_gcm_setkey( context, (const unsigned char *)key, 128 );
+	flag = gcm_setkey( context, (const unsigned char *)key, 128 );
 
-	if ( MBEDTLS_BLOCK_CIPHER_FAIL != flag ) {
-		mbedtls_gcm_crypt_and_tag( context,
+	if ( BLOCK_CIPHER_FAIL != flag ) {
+		gcm_crypt_and_tag( context,
 			(const unsigned char *)iv,
 			iv_len,
 			(const unsigned char *)add,
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 			(unsigned char *)tag,
 			tag_len);
 
-		mbedtls_gcm_auth_decrypt( context,
+		gcm_auth_decrypt( context,
 			(const unsigned char *)iv,
 			iv_len,
 			(const unsigned char *)add,
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 			(unsigned char *)input );
 	}
 
-	mbedtls_gcm_free( context);
+	gcm_free( context);
 
 	return 0;
 
