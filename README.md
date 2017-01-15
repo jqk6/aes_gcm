@@ -32,35 +32,44 @@ void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_
 
 ### GCM
 
-The interfaces of GCM are as follows. It is implemented with look-up-tables.
+### How to Use
 ```C
-int gcm_crypt_and_tag( void *ctx,
-		const unsigned char *iv,
-		size_t iv_len,
-		const unsigned char *add,
-		size_t add_len,
-		const unsigned char *input,
-		size_t length,
-		unsigned char *output,
-		unsigned char *tag,
-		size_t tag_len);
+void * context = gcm_init();
+if ( !context ) { return 0; }
 
-int gcm_auth_decrypt( void *ctx,
-		const unsigned char *iv,
-		size_t iv_len,
-		const unsigned char *add,
-		size_t add_len,
-		const unsigned char *tag,
-		size_t tag_len,
-		const unsigned char *input,
-		size_t length,
-		unsigned char *output );
+int flag = gcm_setkey( context, (const unsigned char *)key, 128 );
+
+if ( BLOCK_CIPHER_FAIL != flag ) {
+	gcm_crypt_and_tag( context,
+		(const unsigned char *)iv,
+		iv_len,
+		(const unsigned char *)add,
+		add_len,
+		(const unsigned char *)input,
+		length,
+		(unsigned char *)output,
+		(unsigned char *)tag,
+		tag_len);
+
+	gcm_auth_decrypt( context,
+		(const unsigned char *)iv,
+		iv_len,
+		(const unsigned char *)add,
+		add_len,
+		(const unsigned char *)tag,
+		tag_len,
+		(const unsigned char *)output,
+		length,
+		(unsigned char *)input );
+}
+
+gcm_free( context);
 ```
 
 ### How to test
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
 
 ### TODO
-Since the tables are only generated in *gcm_crypt_and_tag()*, *gcm_auth_decrypt* can not be called seperately now.
+It is implemented with look-up-tables. Since the tables are only generated in *gcm_crypt_and_tag()*, *gcm_auth_decrypt* can not be called seperately now.
 
 [The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
