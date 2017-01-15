@@ -22,36 +22,31 @@
 #define DEBUG (1)
 
 void *gcm_init() {
-	return malloc(sizeof(gcm_context));
+    return malloc(sizeof(gcm_context));
 }
 
 int gcm_setkey( void *ctx,
-                        const unsigned char *key,
-                        unsigned int keybits ) {
-	if ( NULL == ctx ) { return BLOCK_CIPHER_FAIL; }
-	int result = BLOCK_CIPHER_SUC ;
-	gcm_context *temp_ctx = (gcm_context*)ctx;
-	temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
-	temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
-	temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
-	temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
-	if ( NULL == temp_ctx->rk ) { 
-		result = BLOCK_CIPHER_FAIL;
-	}
-	else {
-		result = (temp_ctx->block_key_schedule)((const uint8_t *)key, temp_ctx->rk);
-	}
-	return result;
+    const unsigned char *key,
+    unsigned int keybits ) {
+    if ( NULL == ctx ) { return BLOCK_CIPHER_FAIL; }
+    gcm_context *temp_ctx = (gcm_context*)ctx;
+    temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
+    temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
+    temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
+    temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
+    if ( NULL == temp_ctx->rk ) { return BLOCK_CIPHER_FAIL; }
+    temp_ctx->block_key_schedule((const uint8_t *)key, temp_ctx->rk);
+    return BLOCK_CIPHER_SUC;
 }
 
 void gcm_free( void *ctx ) {
-	if ( ctx ) {
-		gcm_context *temp_ctx = (gcm_context*)ctx;
-		if ( temp_ctx->rk ) {
-			free((void*)(temp_ctx->rk));
-		}
-		free(ctx);
-	}
+    if ( ctx ) {
+        gcm_context *temp_ctx = (gcm_context*)ctx;
+        if ( temp_ctx->rk ) {
+            free((void*)(temp_ctx->rk));
+        }
+        free(ctx);
+    }
 }
 
 /**
