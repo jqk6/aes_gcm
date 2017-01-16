@@ -17,7 +17,7 @@
 #include <stdint.h>
 
 #define BLOCK_CIPHER_BLOCK_SIZE (16)        /* block size in bytes, AES 128-128 */
-#define DEFAULT_IV_LEN (12)            /* default iv length in bytes */
+#define DEFAULT_IV_LEN (12)                 /* default iv length in bytes */
 #define FIELD_CONST (0xe100000000000000)    /* the const value in filed */
 
 typedef enum {

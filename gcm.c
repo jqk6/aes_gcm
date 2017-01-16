@@ -237,7 +237,7 @@ static void ghash(uint8_t T[][256][16],
 	*((uint64_t *)output+1) = 0;
 
 	/* compute with add */
-	int i = 0, j = 0;
+	int i = 0;
 	for ( i = 0; i < add_len/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
 		*(uint64_t *)output ^= *(uint64_t *)add;
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
