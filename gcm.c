@@ -30,12 +30,10 @@ int gcm_setkey( void *ctx,
     unsigned int keybits ) {
     if ( NULL == ctx ) { return OPERATION_FAIL; }
     gcm_context *temp_ctx = (gcm_context*)ctx;
-    temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
     temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
-    temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
     temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*AES_ROUND_KEY_SIZE);
     if ( NULL == temp_ctx->rk ) { return OPERATION_FAIL; }
-    temp_ctx->block_key_schedule((const uint8_t *)key, temp_ctx->rk);
+    aes_key_schedule_128((const uint8_t *)key, temp_ctx->rk);
     return OPERATION_SUC;
 }
 
@@ -306,7 +304,7 @@ int gcm_crypt_and_tag( void *ctx,
 	/* set H */
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
 	int i = 0;
-	for ( i = 0; i < GCM_BLOCK_SIZE; i++ ) { temp_ctx->H[i] = ency0[i]; }
+	for ( i = 0; i < GCM_BLOCK_SIZE; ++i ) { temp_ctx->H[i] = ency0[i]; }
 
 #if defined(DEBUG)
 	printf("\n----AUTH-ENCRYPTION----\n");
@@ -344,7 +342,7 @@ int gcm_crypt_and_tag( void *ctx,
 
 	/* encyrption */
 	uint8_t * output_temp = output; // store the start pointer of cipher text
-	for ( i = 0; i < length/GCM_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length/GCM_BLOCK_SIZE; ++i ) {
 		incr(y0);
 
 #if defined(DEBUG)
@@ -378,7 +376,7 @@ int gcm_crypt_and_tag( void *ctx,
 		printf("E(K, Y%d):       ", countY++);
 		printf_output(y0, GCM_BLOCK_SIZE);
 #endif
-		for ( i = 0; i < length%GCM_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < length%GCM_BLOCK_SIZE; ++i ) {
 			*(output+i) = *(input+i) ^ *(y0+i);
 		}
 	}
@@ -396,7 +394,7 @@ int gcm_crypt_and_tag( void *ctx,
 	printf_output(y0, GCM_BLOCK_SIZE);
 #endif
 
-	for ( i = 0; i < tag_len; i++ ) {
+	for ( i = 0; i < tag_len; ++i ) {
 		tag[i] = y0[i] ^ ency0[i];
 	}
 #if defined(DEBUG)
@@ -455,7 +453,7 @@ int gcm_auth_decrypt( void *ctx,
 
 	/* authentication */
 	int i = 0;
-	for ( i = 0; i < tag_len; i++ ) {
+	for ( i = 0; i < tag_len; ++i ) {
 		if ( tag[i] != (ency0[i]^temp[i]) ) { break; }
 	}
 	if ( i != tag_len ) {
@@ -464,7 +462,7 @@ int gcm_auth_decrypt( void *ctx,
 
 	/* decyrption */
 	uint8_t * output_temp = output;
-	for ( i = 0; i < length/GCM_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length/GCM_BLOCK_SIZE; ++i ) {
 		incr(y0);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 		*(uint64_t*)output ^= *(uint64_t*)input;
@@ -476,7 +474,7 @@ int gcm_auth_decrypt( void *ctx,
 	if ( length % GCM_BLOCK_SIZE ) {
 		incr(y0);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
-		for ( i = 0; i < length%GCM_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < length%GCM_BLOCK_SIZE; ++i ) {
 			*(output+i) = *(input+i) ^ *(y0+i);
 		}
 	}

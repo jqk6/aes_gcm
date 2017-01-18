@@ -39,11 +39,10 @@ typedef int (*block_decrypt_p)(const uint8_t *roundkeys, const uint8_t *input, u
 typedef struct {
     // rounds keys of block cipher
     uint8_t *rk;
-    // block cipher basic functions
-    block_key_schedule_p   block_key_schedule;
-    block_encrypt_p        block_encrypt;
-    block_decrypt_p        block_decrypt;
+    // block cipher encryption
+    block_encrypt_p block_encrypt;
     uint8_t H[GCM_BLOCK_SIZE];
+    uint8_t buff[GCM_BLOCK_SIZE];
     uint8_t T[GCM_BLOCK_SIZE][256][GCM_BLOCK_SIZE];
 } gcm_context;
 
