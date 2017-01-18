@@ -39,7 +39,7 @@ if ( !context ) { return 0; }
 
 int flag = gcm_setkey( context, (const unsigned char *)key, 128 );
 
-if ( BLOCK_CIPHER_FAIL != flag ) {
+if ( OPERATION_FAIL != flag ) {
 	gcm_crypt_and_tag( context,
 		(const unsigned char *)iv,
 		iv_len,

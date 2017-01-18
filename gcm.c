@@ -28,22 +28,22 @@ void *gcm_init() {
 int gcm_setkey( void *ctx,
     const unsigned char *key,
     unsigned int keybits ) {
-    if ( NULL == ctx ) { return BLOCK_CIPHER_FAIL; }
+    if ( NULL == ctx ) { return OPERATION_FAIL; }
     gcm_context *temp_ctx = (gcm_context*)ctx;
     temp_ctx->block_key_schedule = (block_key_schedule_p)aes_key_schedule_128;
     temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
     temp_ctx->block_decrypt = (block_decrypt_p)aes_decrypt_128;
-    temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*ROUND_KEY_SIZE);
-    if ( NULL == temp_ctx->rk ) { return BLOCK_CIPHER_FAIL; }
+    temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*AES_ROUND_KEY_SIZE);
+    if ( NULL == temp_ctx->rk ) { return OPERATION_FAIL; }
     temp_ctx->block_key_schedule((const uint8_t *)key, temp_ctx->rk);
-    return BLOCK_CIPHER_SUC;
+    return OPERATION_SUC;
 }
 
 void gcm_free( void *ctx ) {
     if ( ctx ) {
         gcm_context *temp_ctx = (gcm_context*)ctx;
         if ( temp_ctx->rk ) {
-            free((void*)(temp_ctx->rk));
+            free(temp_ctx->rk);
         }
         free(ctx);
     }
@@ -77,10 +77,10 @@ static void otherT(uint8_t T[][256][16]) {
 			if ( (j > 0) && (0 == j%8) ) {
 				zh ^= vh;
 				zl ^= vl;
-				for ( k = 1; k <= BLOCK_CIPHER_BLOCK_SIZE/2; k++ ) {
-					T[j/8][i][BLOCK_CIPHER_BLOCK_SIZE/2-k] = (uint8_t)zh;
+				for ( k = 1; k <= GCM_BLOCK_SIZE/2; k++ ) {
+					T[j/8][i][GCM_BLOCK_SIZE/2-k] = (uint8_t)zh;
 					zh = zh >> 8;
-					T[j/8][i][BLOCK_CIPHER_BLOCK_SIZE-k] = (uint8_t)zl;
+					T[j/8][i][GCM_BLOCK_SIZE-k] = (uint8_t)zl;
 					zl = zl >> 8;
 				}
 				zh = zl = 0;
@@ -89,7 +89,7 @@ static void otherT(uint8_t T[][256][16]) {
 				vl = vl >> 1;
 				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
 				vh = vh >> 1;
-				vh ^= FIELD_CONST;
+				vh ^= GCM_FIELD_CONST;
 			} else {
 				vl = vl >> 1;
 				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
@@ -139,7 +139,7 @@ static void computeTable (uint8_t T[][256][16], uint8_t H[]) {
 				vl = vl >> 1;
 				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
 				vh = vh >> 1;
-				vh ^= FIELD_CONST;
+				vh ^= GCM_FIELD_CONST;
 			} else {
 				vl = vl >> 1;
 				if ( vh & 0x1) { vl ^= 0x8000000000000000;}
@@ -148,10 +148,10 @@ static void computeTable (uint8_t T[][256][16], uint8_t H[]) {
 			temph = temph << 1;
 		}
 		// get result
-		for ( j = 1; j <= BLOCK_CIPHER_BLOCK_SIZE/2; j++ ) {
-			T[0][i][BLOCK_CIPHER_BLOCK_SIZE/2-j] = (uint8_t)zh;
+		for ( j = 1; j <= GCM_BLOCK_SIZE/2; j++ ) {
+			T[0][i][GCM_BLOCK_SIZE/2-j] = (uint8_t)zh;
 			zh = zh >> 8;
-			T[0][i][BLOCK_CIPHER_BLOCK_SIZE-j] = (uint8_t)zl;
+			T[0][i][GCM_BLOCK_SIZE-j] = (uint8_t)zl;
 			zl = zl >> 8;
 		}
 	}
@@ -192,23 +192,23 @@ static int countY = 0;
 
 static void printf_output(uint8_t *p, size_t length) {
 	uint8_t i = 0, j = 0;
-	if ( length > BLOCK_CIPHER_BLOCK_SIZE) {
+	if ( length > GCM_BLOCK_SIZE) {
 		// first block
-		for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < GCM_BLOCK_SIZE; i++ ) {
 			printf("%2x ", p[i]);
 		}
 		printf("\n");
 		// middle blocks
-		for ( i = 1; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 1; i < length/GCM_BLOCK_SIZE; i++ ) {
 			printf("                ");
-			for ( j = 0; j < BLOCK_CIPHER_BLOCK_SIZE; j++ ) {
-				printf("%2x ", p[i*BLOCK_CIPHER_BLOCK_SIZE+j]);
+			for ( j = 0; j < GCM_BLOCK_SIZE; j++ ) {
+				printf("%2x ", p[i*GCM_BLOCK_SIZE+j]);
 			}
 			printf("\n");
 		}
 		// last block
 		printf("                ");
-		i = length/BLOCK_CIPHER_BLOCK_SIZE*BLOCK_CIPHER_BLOCK_SIZE;
+		i = length/GCM_BLOCK_SIZE*GCM_BLOCK_SIZE;
 		for ( ; i < length; i++ ) {
 			printf("%2x ", p[i]);
 		}
@@ -238,31 +238,31 @@ static void ghash(uint8_t T[][256][16],
 
 	/* compute with add */
 	int i = 0;
-	for ( i = 0; i < add_len/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < add_len/GCM_BLOCK_SIZE; i++ ) {
 		*(uint64_t *)output ^= *(uint64_t *)add;
 		*((uint64_t *)output+1) ^= *((uint64_t *)add+1);
-		add += BLOCK_CIPHER_BLOCK_SIZE;
+		add += GCM_BLOCK_SIZE;
 		multi(T, output);
 	}
 
-	if ( add_len % BLOCK_CIPHER_BLOCK_SIZE ) {
+	if ( add_len % GCM_BLOCK_SIZE ) {
 		// the remaining add
-		for ( i = 0; i < add_len%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < add_len%GCM_BLOCK_SIZE; i++ ) {
 			*(output+i) ^= *(add+i);
 		}
 		multi(T, output);
 	}
 
 	/* compute with cipher text */
-	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length/GCM_BLOCK_SIZE; i++ ) {
 		*(uint64_t *)output ^= *(uint64_t *)cipher;
 		*((uint64_t *)output+1) ^= *((uint64_t *)cipher+1);
-		cipher += BLOCK_CIPHER_BLOCK_SIZE;
+		cipher += GCM_BLOCK_SIZE;
 		multi(T, output);
 	}
-	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
+	if ( length % GCM_BLOCK_SIZE ) {
 		// the remaining cipher
-		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < length%GCM_BLOCK_SIZE; i++ ) {
 			*(output+i) ^= *(cipher+i);
 		}
 		multi(T, output);
@@ -270,13 +270,13 @@ static void ghash(uint8_t T[][256][16],
 
 	/* eor (len(A)||len(C)) */
 	uint64_t temp_len = (uint64_t)(add_len*8); // len(A) = (uint64_t)(add_len*8)
-	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
-		output[BLOCK_CIPHER_BLOCK_SIZE/2-i] ^= (uint8_t)temp_len;
+	for ( i = 1; i <= GCM_BLOCK_SIZE/2; i++ ) {
+		output[GCM_BLOCK_SIZE/2-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
 	temp_len = (uint64_t)(length*8); // len(C) = (uint64_t)(length*8)
-	for ( i = 1; i <= BLOCK_CIPHER_BLOCK_SIZE/2; i++ ) {
-		output[BLOCK_CIPHER_BLOCK_SIZE-i] ^= (uint8_t)temp_len;
+	for ( i = 1; i <= GCM_BLOCK_SIZE/2; i++ ) {
+		output[GCM_BLOCK_SIZE-i] ^= (uint8_t)temp_len;
 		temp_len = temp_len >> 8;
 	}
 	multi(T, output);
@@ -297,16 +297,16 @@ int gcm_crypt_and_tag( void *ctx,
 		size_t tag_len) {
 
 	gcm_context *temp_ctx = (gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return BLOCK_CIPHER_FAIL; }
-	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return BLOCK_CIPHER_FAIL; }
+	if ( !temp_ctx || !(temp_ctx->rk) ) { return OPERATION_FAIL; }
+	if ( tag_len <= 0 || tag_len > GCM_BLOCK_SIZE ) { return OPERATION_FAIL; }
 
-	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
-	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
+	uint8_t y0[GCM_BLOCK_SIZE] = {0}; // store the counter
+	uint8_t ency0[GCM_BLOCK_SIZE]; // the cihper text of first counter
 
 	/* set H */
 	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
 	int i = 0;
-	for ( i = 0; i < BLOCK_CIPHER_BLOCK_SIZE; i++ ) { temp_ctx->H[i] = ency0[i]; }
+	for ( i = 0; i < GCM_BLOCK_SIZE; i++ ) { temp_ctx->H[i] = ency0[i]; }
 
 #if defined(DEBUG)
 	printf("\n----AUTH-ENCRYPTION----\n");
@@ -316,11 +316,11 @@ int gcm_crypt_and_tag( void *ctx,
 
 #if defined(DEBUG)
 	printf("H:              ");
-	printf_output(temp_ctx->H, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(temp_ctx->H, GCM_BLOCK_SIZE);
 #endif
 
 	/* compute y0 (initilization vector) */
-	if (DEFAULT_IV_LEN == iv_len) {
+	if (GCM_DEFAULT_IV_LEN == iv_len) {
 		*(uint32_t*)y0 = *(uint32_t*)iv;
 		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
 		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
@@ -331,7 +331,7 @@ int gcm_crypt_and_tag( void *ctx,
 
 #if defined(DEBUG)
 	printf("Y%d:             ", countY);
-	printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(y0, GCM_BLOCK_SIZE);
 #endif
 
 	/* compute ency0 = ENC(K, y0) */
@@ -339,46 +339,46 @@ int gcm_crypt_and_tag( void *ctx,
 
 #if defined(DEBUG)
 	printf("E(K, Y%d):       ", countY++);
-	printf_output(ency0, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(ency0, GCM_BLOCK_SIZE);
 #endif
 
 	/* encyrption */
 	uint8_t * output_temp = output; // store the start pointer of cipher text
-	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length/GCM_BLOCK_SIZE; i++ ) {
 		incr(y0);
 
 #if defined(DEBUG)
 		printf("Y%d:             ", countY);
-		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+		printf_output(y0, GCM_BLOCK_SIZE);
 #endif
 
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 
 #if defined(DEBUG)
 		printf("E(K, Y%d):       ", countY++);
-		printf_output(output, BLOCK_CIPHER_BLOCK_SIZE);
+		printf_output(output, GCM_BLOCK_SIZE);
 #endif
 
 		*(uint64_t*)output ^= *(uint64_t*)input;
 		*((uint64_t*)output+1) ^= *((uint64_t*)input+1);
-		output += BLOCK_CIPHER_BLOCK_SIZE;
-	 	input += BLOCK_CIPHER_BLOCK_SIZE;
+		output += GCM_BLOCK_SIZE;
+	 	input += GCM_BLOCK_SIZE;
 	}
 	// the remaining plain text
-	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
+	if ( length % GCM_BLOCK_SIZE ) {
 		incr(y0);
 #if defined(DEBUG)
 		printf("Y%d:             ", countY);
-		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+		printf_output(y0, GCM_BLOCK_SIZE);
 #endif
-		// the last block size man be smaller than BLOCK_SIZE, can NOT be written directly.
+		// the last block size man be smaller than GCM_BLOCK_SIZE, can NOT be written directly.
 //		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
 #if defined(DEBUG)
 		printf("E(K, Y%d):       ", countY++);
-		printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+		printf_output(y0, GCM_BLOCK_SIZE);
 #endif
-		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < length%GCM_BLOCK_SIZE; i++ ) {
 			*(output+i) = *(input+i) ^ *(y0+i);
 		}
 	}
@@ -393,7 +393,7 @@ int gcm_crypt_and_tag( void *ctx,
 
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
-	printf_output(y0, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(y0, GCM_BLOCK_SIZE);
 #endif
 
 	for ( i = 0; i < tag_len; i++ ) {
@@ -404,7 +404,7 @@ int gcm_crypt_and_tag( void *ctx,
 	printf_output(tag, tag_len);
 #endif
 
-	return BLOCK_CIPHER_SUC;
+	return OPERATION_SUC;
 }
 
 
@@ -422,12 +422,12 @@ int gcm_auth_decrypt( void *ctx,
               size_t length,
               unsigned char *output ) {
 	gcm_context *temp_ctx = (gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return BLOCK_CIPHER_FAIL; }
-	if ( tag_len <= 0 || tag_len > BLOCK_CIPHER_BLOCK_SIZE ) { return BLOCK_CIPHER_FAIL; }
+	if ( !temp_ctx || !(temp_ctx->rk) ) { return OPERATION_FAIL; }
+	if ( tag_len <= 0 || tag_len > GCM_BLOCK_SIZE ) { return OPERATION_FAIL; }
 
-	uint8_t y0[BLOCK_CIPHER_BLOCK_SIZE] = {0}; // store the counter
-	uint8_t ency0[BLOCK_CIPHER_BLOCK_SIZE]; // the cihper text of first counter
-	uint8_t temp[BLOCK_CIPHER_BLOCK_SIZE] = {0};
+	uint8_t y0[GCM_BLOCK_SIZE] = {0}; // store the counter
+	uint8_t ency0[GCM_BLOCK_SIZE]; // the cihper text of first counter
+	uint8_t temp[GCM_BLOCK_SIZE] = {0};
 
 #if defined(DEBUG)
 	printf("\n----AUTH-DECRYPTION----\n");
@@ -437,11 +437,11 @@ int gcm_auth_decrypt( void *ctx,
 	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)input, length, temp);
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
-	printf_output(temp, BLOCK_CIPHER_BLOCK_SIZE);
+	printf_output(temp, GCM_BLOCK_SIZE);
 #endif
 
 	/* compute y0 (initilization vector) */
-	if (DEFAULT_IV_LEN == iv_len) {
+	if (GCM_DEFAULT_IV_LEN == iv_len) {
 		*(uint32_t*)y0 = *(uint32_t*)iv;
 		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
 		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
@@ -459,24 +459,24 @@ int gcm_auth_decrypt( void *ctx,
 		if ( tag[i] != (ency0[i]^temp[i]) ) { break; }
 	}
 	if ( i != tag_len ) {
-		return BLOCK_CIPHER_FAIL;
+		return OPERATION_FAIL;
 	}
 
 	/* decyrption */
 	uint8_t * output_temp = output;
-	for ( i = 0; i < length/BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+	for ( i = 0; i < length/GCM_BLOCK_SIZE; i++ ) {
 		incr(y0);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
 		*(uint64_t*)output ^= *(uint64_t*)input;
 		*((uint64_t*)output+1) ^= *((uint64_t*)input+1);
-		output += BLOCK_CIPHER_BLOCK_SIZE;
-	 	input += BLOCK_CIPHER_BLOCK_SIZE;
+		output += GCM_BLOCK_SIZE;
+	 	input += GCM_BLOCK_SIZE;
 	}
 	// the remaining plain text
-	if ( length % BLOCK_CIPHER_BLOCK_SIZE ) {
+	if ( length % GCM_BLOCK_SIZE ) {
 		incr(y0);
 		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, y0);
-		for ( i = 0; i < length%BLOCK_CIPHER_BLOCK_SIZE; i++ ) {
+		for ( i = 0; i < length%GCM_BLOCK_SIZE; i++ ) {
 			*(output+i) = *(input+i) ^ *(y0+i);
 		}
 	}
@@ -486,6 +486,6 @@ int gcm_auth_decrypt( void *ctx,
 	printf_output(output_temp, length);
 #endif
 
-	return BLOCK_CIPHER_SUC;
+	return OPERATION_SUC;
 
 }

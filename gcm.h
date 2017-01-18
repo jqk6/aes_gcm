@@ -15,14 +15,15 @@
 #define GCM_H
 
 #include <stdint.h>
+#include "aes.h"
 
-#define BLOCK_CIPHER_BLOCK_SIZE (16)        /* block size in bytes, AES 128-128 */
-#define DEFAULT_IV_LEN (12)                 /* default iv length in bytes */
-#define FIELD_CONST (0xe100000000000000)    /* the const value in filed */
+#define GCM_BLOCK_SIZE  AES_BLOCK_SIZE       /* block size in bytes, AES 128-128 */
+#define GCM_DEFAULT_IV_LEN (12)              /* default iv length in bytes */
+#define GCM_FIELD_CONST (0xe100000000000000) /* the const value in filed */
 
 typedef enum {
-    BLOCK_CIPHER_FAIL = -1,
-    BLOCK_CIPHER_SUC = 0,
+    OPERATION_FAIL = -1,
+    OPERATION_SUC = 0,
 } operation_result;
 
 /*
@@ -42,14 +43,9 @@ typedef struct {
     block_key_schedule_p   block_key_schedule;
     block_encrypt_p        block_encrypt;
     block_decrypt_p        block_decrypt;
-    uint8_t H[BLOCK_CIPHER_BLOCK_SIZE];
-    uint8_t T[BLOCK_CIPHER_BLOCK_SIZE][256][BLOCK_CIPHER_BLOCK_SIZE];
-} block_cipher_context;
-
-/**
- * GCM context structure
- */
-typedef block_cipher_context    gcm_context;
+    uint8_t H[GCM_BLOCK_SIZE];
+    uint8_t T[GCM_BLOCK_SIZE][256][GCM_BLOCK_SIZE];
+} gcm_context;
 
 /**
  * @par purpose
@@ -112,8 +108,8 @@ void gcm_free( void *ctx );
  *     @note     tag_len can NOT be 0
  *
  * @par return values
- *     BLOCK_CIPHER_SUC if successful
- *     else BLOCK_CIPHER_FAIL
+ *     OPERATION_SUC if successful
+ *     else OPERATION_FAIL
  */
 int gcm_crypt_and_tag( void *ctx,
         const unsigned char *iv,
@@ -150,8 +146,8 @@ int gcm_crypt_and_tag( void *ctx,
  * @par output   buffer for holding the output data
  *
  * @par return values
- *      BLOCK_CIPHER_SUC if successful and authenticated,
- *      BLOCK_CIPHER_FAIL if tag does not match or decryption fails.
+ *      OPERATION_SUC if successful and authenticated,
+ *      OPERATION_FAIL if tag does not match or decryption fails.
  */
 int gcm_auth_decrypt( void *ctx,
         const unsigned char *iv,
