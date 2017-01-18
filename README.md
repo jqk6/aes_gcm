@@ -33,9 +33,7 @@ void aes_encrypt_128(const uint8_t *roundkeys, const uint8_t *plaintext, uint8_t
 void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_t *plaintext);
 ```
 
-### GCM
-
-### How to Use
+### GCM - How to Use
 * Encryption
 ```C
 void * context = gcm_init();
@@ -75,5 +73,7 @@ gcm_free( context);
 
 ### How to test
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
+
+This code has been tested with valgrind-3.11.0.
 
 [The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
