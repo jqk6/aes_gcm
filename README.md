@@ -33,43 +33,42 @@ void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_
 ### GCM
 
 ### How to Use
+* Encryption
 ```C
 void * context = gcm_init();
-if ( !context ) { return 0; }
+if ( !context ) { return OPERATION_FAIL; }
 
-int flag = gcm_setkey( context, (const unsigned char *)key, 128 );
+operation_result flag = gcm_setkey(context, key, 128 );
 
 if ( OPERATION_FAIL != flag ) {
-	gcm_crypt_and_tag( context,
-		(const unsigned char *)iv,
-		iv_len,
-		(const unsigned char *)add,
-		add_len,
-		(const unsigned char *)input,
-		length,
-		(unsigned char *)output,
-		(unsigned char *)tag,
-		tag_len);
-
-	gcm_auth_decrypt( context,
-		(const unsigned char *)iv,
-		iv_len,
-		(const unsigned char *)add,
-		add_len,
-		(const unsigned char *)tag,
-		tag_len,
-		(const unsigned char *)output,
-		length,
-		(unsigned char *)input );
+	gcm_crypt_and_tag(context,
+		iv, iv_len,
+		add, add_len,
+		input, length,
+		output,
+		tag, tag_len);
 }
 
 gcm_free( context);
 ```
+* Decryption
+```C
+void * context = gcm_init();
+if ( !context ) { return OPERATION_FAIL; }
+
+operation_result flag = gcm_setkey(context, key, 128 );
+
+if ( OPERATION_FAIL != flag ) {
+	gcm_auth_decrypt( context,
+		iv, iv_len,
+		add, add_len,
+		tag, tag_len,
+		input, length,
+		output);
+}
+```
 
 ### How to test
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
-
-### TODO
-It is implemented with look-up-tables. Since the tables are only generated in *gcm_crypt_and_tag()*, *gcm_auth_decrypt* can not be called seperately now.
 
 [The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
