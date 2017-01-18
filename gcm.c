@@ -282,13 +282,18 @@ static void ghash(uint8_t T[][256][16],
 
 #define xor_state(output, input, buff, size) \
     for (t = 0; t < size; ++t) {             \
-        output[t] = input[t] ^ buff[t];     \
+        output[t] = input[t] ^ buff[t];      \
+    }
+
+#define copy_state(output, input, size) \
+    for (t = 0; t < size; ++t) {        \
+        output[t] = input[t];           \
     }
 
 /**
  * authenticated encryption
  */
-int gcm_crypt_and_tag( void *ctx,
+int gcm_crypt_and_tag( void *context,
 		const unsigned char *iv,
 		size_t iv_len,
 		const unsigned char *add,
@@ -299,37 +304,33 @@ int gcm_crypt_and_tag( void *ctx,
 		unsigned char *tag,
 		size_t tag_len) {
 
-	gcm_context *temp_ctx = (gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return OPERATION_FAIL; }
+	gcm_context *ctx = (gcm_context*)context;
+	if ( !ctx || !(ctx->rk) ) { return OPERATION_FAIL; }
 	if ( tag_len <= 0 || tag_len > GCM_BLOCK_SIZE ) { return OPERATION_FAIL; }
 
+	int i, t;
 	uint8_t y0[GCM_BLOCK_SIZE] = {0}; // store the counter
 	uint8_t ency0[GCM_BLOCK_SIZE]; // the cihper text of first counter
 
-	/* set H */
-	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
-	int i, t;
-	for ( i = 0; i < GCM_BLOCK_SIZE; ++i ) { temp_ctx->H[i] = ency0[i]; }
+	// set H
+	(ctx->block_encrypt)(ctx->rk, y0, ency0);
+	for ( i = 0; i < GCM_BLOCK_SIZE; ++i ) { ctx->H[i] = ency0[i]; }
 
 #if defined(DEBUG)
 	printf("\n----AUTH-ENCRYPTION----\n");
-	printf("COMPUTE TABLES\n");
-#endif
-	computeTable(temp_ctx->T, temp_ctx->H);
-
-#if defined(DEBUG)
 	printf("H:              ");
-	printf_output(temp_ctx->H, GCM_BLOCK_SIZE);
+	printf_output(ctx->H, GCM_BLOCK_SIZE);
+	printf("COMPUTE TABLES\n");
+	countY = 0;
 #endif
+	computeTable(ctx->T, ctx->H);
 
-	/* compute y0 (initilization vector) */
+	// compute y0 (initilization vector)
 	if (GCM_DEFAULT_IV_LEN == iv_len) {
-		*(uint32_t*)y0 = *(uint32_t*)iv;
-		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
-		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
+		copy_state(y0, iv, GCM_DEFAULT_IV_LEN);
 		y0[15] = 1;
 	} else {
-		ghash(temp_ctx->T, NULL, 0, (const uint8_t*)iv, iv_len, y0);
+		ghash(ctx->T, NULL, 0, iv, iv_len, y0);
 	}
 
 #if defined(DEBUG)
@@ -337,50 +338,30 @@ int gcm_crypt_and_tag( void *ctx,
 	printf_output(y0, GCM_BLOCK_SIZE);
 #endif
 
-	/* compute ency0 = ENC(K, y0) */
-	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
+	// compute ency0 = ENC(K, y0)
+	(ctx->block_encrypt)(ctx->rk, y0, ency0);
 
 #if defined(DEBUG)
 	printf("E(K, Y%d):       ", countY++);
 	printf_output(ency0, GCM_BLOCK_SIZE);
 #endif
 
-	/* encyrption */
+	// encyrption
 	uint8_t * output_temp = output; // store the start pointer of cipher text
 	for ( i = 0; i < length/GCM_BLOCK_SIZE; ++i ) {
 		incr(y0);
-
-#if defined(DEBUG)
-		printf("Y%d:             ", countY);
-		printf_output(y0, GCM_BLOCK_SIZE);
-#endif
-
-		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, temp_ctx->buff);
-
-#if defined(DEBUG)
-		printf("E(K, Y%d):       ", countY++);
-		printf_output(output, GCM_BLOCK_SIZE);
-#endif
-
-		xor_state(output, input, temp_ctx->buff, GCM_BLOCK_SIZE);
+		(ctx->block_encrypt)(ctx->rk, y0, ctx->buff);
+		xor_state(output, input, ctx->buff, GCM_BLOCK_SIZE);
 		output += GCM_BLOCK_SIZE;
 	 	input += GCM_BLOCK_SIZE;
 	}
 	// the remaining plain text
 	if ( length % GCM_BLOCK_SIZE ) {
 		incr(y0);
-#if defined(DEBUG)
-		printf("Y%d:             ", countY);
-		printf_output(y0, GCM_BLOCK_SIZE);
-#endif
 		// the last block size man be smaller than GCM_BLOCK_SIZE, can NOT be written directly.
-//		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, output);
-		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, temp_ctx->buff);
-#if defined(DEBUG)
-		printf("E(K, Y%d):       ", countY++);
-		printf_output(y0, GCM_BLOCK_SIZE);
-#endif
-		xor_state(output, input, temp_ctx->buff, length%GCM_BLOCK_SIZE);
+        // (ctx->block_encrypt)((const uint8_t *)(ctx->rk), (const uint8_t *)y0, output);
+		(ctx->block_encrypt)(ctx->rk, y0, ctx->buff);
+		xor_state(output, input, ctx->buff, length%GCM_BLOCK_SIZE);
 	}
 
 #if defined(DEBUG)
@@ -388,16 +369,15 @@ int gcm_crypt_and_tag( void *ctx,
 	printf_output(output_temp, length);
 #endif
 
-	/* compute tag, y0 is useless now */
-	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)output_temp, length, temp_ctx->buff);
-
+	// compute tag
+	ghash(ctx->T, add, add_len, output_temp, length, ctx->buff);
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
-	printf_output(temp_ctx->buff, GCM_BLOCK_SIZE);
+	printf_output(ctx->buff, GCM_BLOCK_SIZE);
 #endif
 
 	for ( i = 0; i < tag_len; ++i ) {
-		tag[i] = temp_ctx->buff[i] ^ ency0[i];
+		tag[i] = ctx->buff[i] ^ ency0[i];
 	}
 #if defined(DEBUG)
 	printf("TAG:            ");
@@ -411,7 +391,7 @@ int gcm_crypt_and_tag( void *ctx,
 /*
  * authenticated decryption
  */
-int gcm_auth_decrypt( void *ctx,
+int gcm_auth_decrypt( void *context,
               const unsigned char *iv,
               size_t iv_len,
               const unsigned char *add,
@@ -421,75 +401,68 @@ int gcm_auth_decrypt( void *ctx,
               const unsigned char *input,
               size_t length,
               unsigned char *output ) {
-	gcm_context *temp_ctx = (gcm_context*)ctx;
-	if ( !temp_ctx || !(temp_ctx->rk) ) { return OPERATION_FAIL; }
+
+	gcm_context *ctx = (gcm_context*)context;
+	if ( !ctx || !(ctx->rk) ) { return OPERATION_FAIL; }
 	if ( tag_len <= 0 || tag_len > GCM_BLOCK_SIZE ) { return OPERATION_FAIL; }
 
 	uint8_t y0[GCM_BLOCK_SIZE] = {0}; // store the counter
 	uint8_t ency0[GCM_BLOCK_SIZE]; // the cihper text of first counter
 
+	// set H
+	(ctx->block_encrypt)(ctx->rk, y0, ency0);
+	int i, t;
+	for ( i = 0; i < GCM_BLOCK_SIZE; ++i ) { ctx->H[i] = ency0[i]; }
+
 #if defined(DEBUG)
 	printf("\n----AUTH-DECRYPTION----\n");
+	printf("H:              ");
+	printf_output(ctx->H, GCM_BLOCK_SIZE);
+	printf("COMPUTE TABLES\n");
 	countY = 0;
 #endif
+	computeTable(ctx->T, ctx->H);
 
-	/* set H */
-	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
-	int i, t;
-	for ( i = 0; i < GCM_BLOCK_SIZE; ++i ) { temp_ctx->H[i] = ency0[i]; }
-
-#if defined(DEBUG)
-	printf("COMPUTE TABLES\n");
-#endif
-	computeTable(temp_ctx->T, temp_ctx->H);
-
-#if defined(DEBUG)
-	printf("H:              ");
-	printf_output(temp_ctx->H, GCM_BLOCK_SIZE);
-#endif
-
-	/* compute tag */
-	ghash(temp_ctx->T, (const uint8_t *)add, add_len, (const uint8_t*)input, length, temp_ctx->buff);
+	// compute tag
+	ghash(ctx->T, add, add_len, input, length, ctx->buff);
 #if defined(DEBUG)
 	printf("GHASH(H, A, C): ");
-	printf_output(temp_ctx->buff, GCM_BLOCK_SIZE);
+	printf_output(ctx->buff, GCM_BLOCK_SIZE);
 #endif
 
-	/* compute y0 (initilization vector) */
+	// compute y0 (initilization vector)
 	if (GCM_DEFAULT_IV_LEN == iv_len) {
-		*(uint32_t*)y0 = *(uint32_t*)iv;
-		*((uint32_t*)y0+1) = *((uint32_t*)iv+1);
-		*((uint32_t*)y0+2) = *((uint32_t*)iv+2);
-		y0[15] = 1;
+        copy_state(y0, iv, GCM_DEFAULT_IV_LEN);
+        y0[15] = 1;
 	} else {
-		ghash(temp_ctx->T, NULL, 0, (const uint8_t*)iv, iv_len, y0);
+		ghash(ctx->T, NULL, 0, iv, iv_len, y0);
 	}
 
-	/* compute ency0 = ENC(K, y0) */
-	(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, ency0);
+	// compute ency0 = ENC(K, y0)
+	(ctx->block_encrypt)(ctx->rk, y0, ency0);
 
-	/* authentication */
+	// authentication
 	for ( i = 0; i < tag_len; ++i ) {
-		if ( tag[i] != (ency0[i] ^ temp_ctx->buff[i]) ) { break; }
+		if ( tag[i] != (ency0[i] ^ ctx->buff[i]) ) { break; }
 	}
 	if ( i != tag_len ) {
 		return OPERATION_FAIL;
 	}
 
-	/* decyrption */
+	// decyrption
 	uint8_t * output_temp = output;
 	for ( i = 0; i < length/GCM_BLOCK_SIZE; ++i ) {
 		incr(y0);
-		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, temp_ctx->buff);
-		xor_state(output, input, temp_ctx->buff, GCM_BLOCK_SIZE);
+		(ctx->block_encrypt)(ctx->rk, y0, ctx->buff);
+		xor_state(output, input, ctx->buff, GCM_BLOCK_SIZE);
 		output += GCM_BLOCK_SIZE;
 	 	input += GCM_BLOCK_SIZE;
 	}
 	// the remaining plain text
 	if ( length % GCM_BLOCK_SIZE ) {
 		incr(y0);
-		(temp_ctx->block_encrypt)((const uint8_t *)(temp_ctx->rk), (const uint8_t *)y0, temp_ctx->buff);
-		xor_state(output, input, temp_ctx->buff, length%GCM_BLOCK_SIZE);
+		(ctx->block_encrypt)(ctx->rk, y0, ctx->buff);
+		xor_state(output, input, ctx->buff, length%GCM_BLOCK_SIZE);
 	}
 
 #if defined(DEBUG)
