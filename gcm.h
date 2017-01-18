@@ -66,7 +66,7 @@ void *gcm_init();
  * @par return values
  *    0 if successful, or a cipher specific error code
  */
-int gcm_setkey( void *ctx,
+operation_result gcm_setkey( void *ctx,
         const unsigned char *key,
         unsigned int keybits );
 
@@ -110,7 +110,7 @@ void gcm_free( void *ctx );
  *     OPERATION_SUC if successful
  *     else OPERATION_FAIL
  */
-int gcm_crypt_and_tag( void *ctx,
+operation_result gcm_crypt_and_tag( void *ctx,
         const unsigned char *iv,
         size_t iv_len,
         const unsigned char *add,
@@ -148,7 +148,7 @@ int gcm_crypt_and_tag( void *ctx,
  *      OPERATION_SUC if successful and authenticated,
  *      OPERATION_FAIL if tag does not match or decryption fails.
  */
-int gcm_auth_decrypt( void *ctx,
+operation_result gcm_auth_decrypt( void *ctx,
         const unsigned char *iv,
         size_t iv_len,
         const unsigned char *add,

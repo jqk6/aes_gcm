@@ -25,10 +25,10 @@ void *gcm_init() {
     return malloc(sizeof(gcm_context));
 }
 
-int gcm_setkey( void *ctx,
+operation_result gcm_setkey( void *ctx,
     const unsigned char *key,
     unsigned int keybits ) {
-    if ( NULL == ctx ) { return OPERATION_FAIL; }
+    if ( NULL == ctx || NULL == key || 128 != keybits) { return OPERATION_FAIL; }
     gcm_context *temp_ctx = (gcm_context*)ctx;
     temp_ctx->block_encrypt = (block_encrypt_p)aes_encrypt_128;
     temp_ctx->rk = (uint8_t*)malloc(sizeof(uint8_t)*AES_ROUND_KEY_SIZE);
@@ -293,7 +293,7 @@ static void ghash(uint8_t T[][256][16],
 /**
  * authenticated encryption
  */
-int gcm_crypt_and_tag( void *context,
+operation_result gcm_crypt_and_tag( void *context,
         const unsigned char *iv,
         size_t iv_len,
         const unsigned char *add,
@@ -391,7 +391,7 @@ int gcm_crypt_and_tag( void *context,
 /*
  * authenticated decryption
  */
-int gcm_auth_decrypt( void *context,
+operation_result gcm_auth_decrypt( void *context,
         const unsigned char *iv,
         size_t iv_len,
         const unsigned char *add,

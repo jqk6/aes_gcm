@@ -7,8 +7,74 @@
 
 #define TEST_CASE (6)
 
+operation_result encryption (const unsigned char *key,
+	const unsigned char *iv,
+    size_t iv_len,
+    const unsigned char *add,
+    size_t add_len,
+    const unsigned char *input,
+    size_t length,
+    unsigned char *output,
+    unsigned char *tag,
+    size_t tag_len) {
+
+	void * context = gcm_init();
+	if ( !context ) { 
+		printf("malloc failed.\n");
+		return OPERATION_FAIL;
+	}
+	
+	operation_result flag = gcm_setkey(context, key, 128 );
+	if ( OPERATION_FAIL == flag ) { return OPERATION_FAIL; }
+
+	gcm_crypt_and_tag(context,
+		iv, iv_len,
+		add, add_len,
+		input, length,
+		output,
+		tag, tag_len);
+
+	gcm_free( context);
+
+	return OPERATION_SUC;
+
+}
+
+operation_result decryption (const unsigned char *key,
+	const unsigned char *iv,
+    size_t iv_len,
+    const unsigned char *add,
+    size_t add_len,
+    const unsigned char *tag,
+    size_t tag_len,
+    const unsigned char *input,
+    size_t length,
+    unsigned char *output ) {
+
+	void * context = gcm_init();
+	if ( !context ) { 
+		printf("malloc failed.\n");
+		return 0;
+	}
+	
+	operation_result flag = gcm_setkey(context, key, 128);
+	if ( OPERATION_FAIL == flag ) { return OPERATION_FAIL; }
+
+	gcm_auth_decrypt( context,
+		iv, iv_len,
+		add, add_len,
+		tag, tag_len,
+		input, length,
+		output);
+
+	gcm_free( context);
+
+	return OPERATION_SUC;
+
+}
+
 int main(int argc, char *argv[]) {
-	 
+
 #if defined(TEST_CASE) && (TEST_CASE==1)
 	uint8_t key[AES_BLOCK_SIZE] = {0};
 	uint8_t *input = NULL;
@@ -102,44 +168,23 @@ int main(int argc, char *argv[]) {
 		0xc3, 0xc0, 0xc9, 0x51, 0x56, 0x80, 0x95, 0x39, 0xfc, 0xf0, 0xe2, 0x42, 0x9a, 0x6b, 0x52, 0x54,
 		0x16, 0xae, 0xdb, 0xf5, 0xa0, 0xde, 0x6a, 0x57, 0xa6, 0x37, 0xb3, 0x9b};
 #endif
-
+	
 	uint8_t tag[16] = {0};
 	size_t tag_len = 16;
-	
-	void * context = gcm_init();
-	if ( !context ) { 
-		printf("malloc failed.\n");
-		return 0;
-	}
-	
-	int flag = -2;
-	flag = gcm_setkey( context, (const unsigned char *)key, 128 );
 
-	if ( OPERATION_FAIL != flag ) {
-		gcm_crypt_and_tag( context,
-			(const unsigned char *)iv,
-			iv_len,
-			(const unsigned char *)add,
-			add_len,
-			(const unsigned char *)input,
-			length,
-			(unsigned char *)output,
-			(unsigned char *)tag,
-			tag_len);
+	encryption(key,
+		iv, iv_len,
+		add, add_len,
+		input, length,
+		output,
+		tag, tag_len);
 
-		gcm_auth_decrypt( context,
-			(const unsigned char *)iv,
-			iv_len,
-			(const unsigned char *)add,
-			add_len,
-			(const unsigned char *)tag,
-			tag_len,
-			(const unsigned char *)output,
-			length,
-			(unsigned char *)input );
-	}
-
-	gcm_free( context);
+	decryption(key,
+		iv, iv_len,
+		add, add_len,
+		tag, tag_len,
+		output, length,
+		input);	
 
 	return 0;
 
