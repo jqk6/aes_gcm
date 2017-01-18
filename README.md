@@ -1,4 +1,7 @@
 # AES-128 in GCM
+
+[![Build Status](https://travis-ci.org/openluopworld/aes_gcm.svg?branch=master)](https://travis-ci.org/openluopworld/aes_gcm)
+
 THIS CODE IS JUST FOR UNDERSTANDING AND STUDY.
 
 ### AES-128
