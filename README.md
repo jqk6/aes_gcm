@@ -66,6 +66,8 @@ if ( OPERATION_FAIL != flag ) {
 		input, length,
 		output);
 }
+
+gcm_free( context);
 ```
 
 ### How to test
