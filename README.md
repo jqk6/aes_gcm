@@ -1,40 +1,14 @@
-# AES-128 in GCM
+# AES-GCM
 
 [![Build Status](https://travis-ci.org/openluopworld/aes_gcm.svg?branch=master)](https://travis-ci.org/openluopworld/aes_gcm)
 
 THIS CODE IS JUST FOR UNDERSTANDING AND STUDY.
 
-### AES-128
-Only AES-128 is used. The code is tested with GCC under Ubuntu 14.04. The interfaces of AES are as follows.
-```C
-/**
- * @purpose:			Key schedule for AES-128
- * @par[in]key:			16 bytes of master keys
- * @par[out]roundkeys:	176 bytes of round keys
- */
-void aes_key_schedule_128(const uint8_t *key, uint8_t *roundkeys);
+The code has been tested with GCC 4.8.4 and Valgrind-3.11.0. The block cipher is AES-128.
 
-/**
- * @purpose:			Encryption. The length of plain and cipher should be one block (16 bytes).
- *						The plaintext and ciphertext may point to the same memory
- * @par[in]roundkeys:	round keys
- * @par[in]plaintext:	plain text
- * @par[out]ciphertext:	cipher text
- */
-void aes_encrypt_128(const uint8_t *roundkeys, const uint8_t *plaintext, uint8_t *ciphertext);
+## Usage
 
-/**
- * @purpose:			Decryption. The length of plain and cipher should be one block (16 bytes).
- *						The ciphertext and plaintext may point to the same memory
- * @par[in]roundkeys:	round keys
- * @par[in]ciphertext:	cipher text
- * @par[out]plaintext:	plain text
- */
-void aes_decrypt_128(const uint8_t *roundkeys, const uint8_t *ciphertext, uint8_t *plaintext);
-```
-
-### GCM - How to Use
-* Encryption
+### Encryption
 ```C
 void * context = gcm_init();
 if ( !context ) { return OPERATION_FAIL; }
@@ -42,17 +16,18 @@ if ( !context ) { return OPERATION_FAIL; }
 operation_result flag = gcm_setkey(context, key, 128 );
 
 if ( OPERATION_FAIL != flag ) {
-	gcm_crypt_and_tag(context,
-		iv, iv_len,
-		add, add_len,
-		input, length,
-		output,
-		tag, tag_len);
+    gcm_crypt_and_tag(context,
+        iv, iv_len,
+        add, add_len,
+        input, length,
+        output,
+        tag, tag_len);
 }
 
 gcm_free( context);
 ```
-* Decryption
+
+### Decryption
 ```C
 void * context = gcm_init();
 if ( !context ) { return OPERATION_FAIL; }
@@ -60,20 +35,45 @@ if ( !context ) { return OPERATION_FAIL; }
 operation_result flag = gcm_setkey(context, key, 128 );
 
 if ( OPERATION_FAIL != flag ) {
-	gcm_auth_decrypt( context,
-		iv, iv_len,
-		add, add_len,
-		tag, tag_len,
-		input, length,
-		output);
+    gcm_auth_decrypt( context,
+        iv, iv_len,
+        add, add_len,
+        tag, tag_len,
+        input, length,
+        output);
 }
 
 gcm_free( context);
 ```
 
-### How to test
+## How to test
 According to [The Galois/Counter Mode of Operation (GCM)], 6 test cases are given is *main.c*. You can just change the value of *TEST_CASE(from 1 to 6)* for different test vectors.
 
-This code has been tested with valgrind-3.11.0.
+### Compile
+```sh
+make
+```
+
+## License
+
+> Copyright (c) 2017 LuoPeng
+> 
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+> 
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+> 
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
 
 [The Galois/Counter Mode of Operation (GCM)]:<http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf>
